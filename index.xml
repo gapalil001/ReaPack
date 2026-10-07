@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<index version="1" name="Flat Madness" commit="0bce00bdc71b75bd1f2052843878e2a933aca7d3">
+  <category name="JSFX">
+    <reapack name="Flat Madness BurnDrive.jsfx" type="effect" desc="BurnDrive (Flat Madness)">
+      <metadata>
+        <link rel="website">https://github.com/gapalil001/ReaPack</link>
+      </metadata>
+      <version name="1.0" author="Dmytro Hapochka" time="2026-10-07T10:51:50Z">
+        <changelog><![CDATA[Initial ReaPack release; processing code and parameters preserved.]]></changelog>
+        <source file="../Flat Madness BurnDrive.jsfx">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/Flat%20Madness%20BurnDrive.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="Flat Madness BurnPressor Ultra.jsfx" type="effect" desc="BurnPressor Ultra (Flat Madness)">
+      <metadata>
+        <link rel="website">https://github.com/gapalil001/ReaPack</link>
+      </metadata>
+      <version name="1.0" author="Dmytro Hapochka" time="2026-10-07T10:51:50Z">
+        <changelog><![CDATA[Initial ReaPack release; processing code and parameters preserved.]]></changelog>
+        <source file="../Flat Madness BurnPressor Ultra.jsfx">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/Flat%20Madness%20BurnPressor%20Ultra.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="Flat Madness Clipper.jsfx" type="effect" desc="Clipper (Flat Madness)">
+      <metadata>
+        <link rel="website">https://github.com/gapalil001/ReaPack</link>
+      </metadata>
+      <version name="1.0" author="Dmytro Hapochka" time="2026-10-07T10:51:50Z">
+        <changelog><![CDATA[Initial ReaPack release; processing code and parameters preserved.]]></changelog>
+        <source file="../Flat Madness Clipper.jsfx">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/Flat%20Madness%20Clipper.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="Flat Madness MultiTrans.jsfx" type="effect" desc="FM MultiTrans (Flat Madness)">
+      <metadata>
+        <link rel="website">https://github.com/gapalil001/ReaPack</link>
+      </metadata>
+      <version name="1.0" author="dmytro Hapochka" time="2026-10-07T10:51:50Z">
+        <changelog><![CDATA[Initial ReaPack release; processing code and parameters preserved.]]></changelog>
+        <source file="../Flat Madness MultiTrans.jsfx">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/Flat%20Madness%20MultiTrans.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="Flat Madness panorama.jsfx" type="effect" desc="Panorama (Flat Madness)">
+      <metadata>
+        <link rel="website">https://github.com/gapalil001/ReaPack</link>
+      </metadata>
+      <version name="1.0" author="Dmytro Hapochka" time="2026-10-07T10:51:50Z">
+        <changelog><![CDATA[Initial ReaPack release; processing code and parameters preserved.]]></changelog>
+        <source file="../Flat Madness panorama.jsfx">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/Flat%20Madness%20panorama.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="FM BBQ.jsfx" type="effect" desc="BBQ Grill saturator">
+      <metadata>
+        <link rel="website">https://github.com/gapalil001/ReaPack</link>
+      </metadata>
+      <version name="1.0" author="Dmytro Hapochka" time="2026-10-07T10:51:50Z">
+        <changelog><![CDATA[Initial ReaPack release; processing code and parameters preserved.]]></changelog>
+        <source file="../FM BBQ.jsfx">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/FM%20BBQ.jsfx</source>
+        <source file="../BBQ-assets/grill-background.png">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/BBQ-assets/grill-background.png</source>
+        <source file="../BBQ-assets/bbq-knob-35-atlas.png">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/BBQ-assets/bbq-knob-35-atlas.png</source>
+        <source file="../BBQ-assets/meter-body.png">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/BBQ-assets/meter-body.png</source>
+        <source file="../BBQ-assets/meter-needle-35-atlas.png">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/BBQ-assets/meter-needle-35-atlas.png</source>
+        <source file="../BBQ-assets/meter-glass.png">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/BBQ-assets/meter-glass.png</source>
+      </version>
+    </reapack>
+    <reapack name="FM MultiComp 2.jsfx" type="effect" desc="MultiComp 2 (Flat Madness)">
+      <metadata>
+        <link rel="website">https://github.com/gapalil001/ReaPack</link>
+      </metadata>
+      <version name="2.0" author="Dmytro Hapochka" time="2026-10-07T10:51:50Z">
+        <changelog><![CDATA[Initial ReaPack release; processing code and parameters preserved.]]></changelog>
+        <source file="../FM MultiComp 2.jsfx">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/FM%20MultiComp%202.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="FM MultiGate 2.jsfx" type="effect" desc="MultiGate 2 (Flat Madness)">
+      <metadata>
+        <link rel="website">https://github.com/gapalil001/ReaPack</link>
+      </metadata>
+      <version name="2.14" author="Dmytro Hapochka" time="2026-10-07T10:51:50Z">
+        <changelog><![CDATA[Initial ReaPack release; processing code and parameters preserved.]]></changelog>
+        <source file="../FM MultiGate 2.jsfx">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/FM%20MultiGate%202.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="FM TotalView.jsfx" type="effect" desc="TotalView (Flat Madness)">
+      <metadata>
+        <link rel="website">https://github.com/gapalil001/ReaPack</link>
+      </metadata>
+      <version name="1.0" author="gapalil" time="2026-10-07T10:51:50Z">
+        <changelog><![CDATA[Initial ReaPack release; processing code and parameters preserved.]]></changelog>
+        <source file="../FM TotalView.jsfx">https://raw.githubusercontent.com/gapalil001/ReaPack/0bce00bdc71b75bd1f2052843878e2a933aca7d3/JSFX/FM%20TotalView.jsfx</source>
+      </version>
+    </reapack>
+  </category>
+  <metadata>
+    <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 Flat Madness \u8212- ReaPack\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 JSFX effects for REAPER by Dmytro Hapochka (gapalil001).\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Install with ReaPack\par}
+{\pard \ql \f0 \sa180 \li360 \fi-360 1.\tx360\tab In REAPER, open {\b Extensions \u8594? ReaPack \u8594? Import repositories}.\par}
+{\pard \ql \f0 \sa180 \li360 \fi-360 2.\tx360\tab Paste this URL:\par}
+{\pard \ql \f0 \sa180 \li360 \fi0 \f1 https://raw.githubusercontent.com/gapalil001/ReaPack/main/index.xml\par}
+{\pard \ql \f0 \sa180 \li360 \fi-360 3.\tx360\tab Open {\b Extensions \u8594? ReaPack \u8594? Browse packages}, find {\b Flat Madness}, select the effects you want, and choose {\b Install \u8594? Apply}.\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The effects install directly into {\f1 Effects/Flat Madness/} inside the REAPER resource folder. Their original filenames are preserved. BBQ's five PNG files install into {\f1 Effects/Flat Madness/BBQ-assets/} automatically.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 If these effects were previously installed manually at the same paths, keep a backup of any personal edits before using ReaPack to manage them.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Included effects\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 | Effect | File | ReaPack version | | --- | --- | --- | | BurnDrive | {\f1 Flat Madness BurnDrive.jsfx} | 1.0 | | BurnPressor Ultra | {\f1 Flat Madness BurnPressor Ultra.jsfx} | 1.0 | | Clipper | {\f1 Flat Madness Clipper.jsfx} | 1.0 | | MultiTrans | {\f1 Flat Madness MultiTrans.jsfx} | 1.0 | | Panorama | {\f1 Flat Madness panorama.jsfx} | 1.0 | | BBQ Grill saturator | {\f1 FM BBQ.jsfx} | 1.0 | | MultiComp 2 | {\f1 FM MultiComp 2.jsfx} | 2.0 | | MultiGate 2 | {\f1 FM MultiGate 2.jsfx} | 2.14 | | TotalView | {\f1 FM TotalView.jsfx} | 1.0 |\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The first ReaPack release adds packaging metadata only. The original processing code, slider IDs, filenames, and artwork are preserved. The original {\f1 version: 1.0 GR} label in TotalView remains unchanged; its ReaPack release version is 1.0.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 BBQ resources\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Keep {\f1 BBQ-assets/} beside {\f1 FM BBQ.jsfx}, with these exact names:\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 grill-background.png}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 bbq-knob-35-atlas.png}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 meter-body.png}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 meter-needle-35-atlas.png}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 meter-glass.png}\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The two atlases each contain 35 frames. Preserve image dimensions, frame layouts, and transparency when editing artwork.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\f1 JSFX/BBQ-assets/bbq-dsp-test.jsfx} is a developer verification effect that generates its own test signal. It is preserved in the source repository and marked {\f1 @noindex}; it is not installed with BBQ.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Presets and existing projects\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The installation path {\f1 Effects/Flat Madness/} and original filenames are kept for existing projects and FX chains. No presets are included in this first release. Preset files can be added after their format and effect references have been checked.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Maintaining this repository\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Package sources are under {\f1 JSFX/}. ReaPack's repository display name {\b Flat Madness} is also its installation folder name. Each package maps its installed files one directory above the {\f1 JSFX} category using {\f1 @provides}, keeping {\f1 Effects/Flat Madness/} stable.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 For an effect update, change its {\f1 // @version} and {\f1 // @changelog}. Keep old versions in {\f1 index.xml}: their download URLs point to the exact source commit. GitHub Actions checks the packages and updates the index after a push to {\f1 main}.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The local index can be checked and generated with Ruby, Pandoc, and {\f1 reapack-index} 1.2.3:\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \f1 gem install reapack-index --version 1.2.3\line
+reapack-index --check\line
+reapack-index\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Packaging reference: {\field{\*\fldinst{HYPERLINK "https://github.com/cfillion/reapack-index/wiki/Packaging-Documentation"}}{\fldrslt{\ul
+https://github.com/cfillion/reapack-index/wiki/Packaging-Documentation
+}}}
+\par}
+}
+]]></description>
+    <link rel="website">https://github.com/gapalil001/ReaPack</link>
+  </metadata>
+</index>
