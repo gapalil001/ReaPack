@@ -96,10 +96,10 @@
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 Flat Madness \u8212- ReaPack\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 JSFX effects for REAPER by Dmytro Hapochka (gapalil001).\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Install with ReaPack\par}
-{\pard \ql \f0 \sa180 \li360 \fi-360 1.\tx360\tab In REAPER, open {\b Extensions \u8594? ReaPack \u8594? Import repositories}.\par}
+{\pard \ql \f0 \sa180 \li360 \fi-360 1.\tx360\tab In REAPER, open {\b Extensions \u8594 ? ReaPack \u8594 ? Import repositories}.\par}
 {\pard \ql \f0 \sa180 \li360 \fi-360 2.\tx360\tab Paste this URL:\par}
 {\pard \ql \f0 \sa180 \li360 \fi0 \f1 https://raw.githubusercontent.com/gapalil001/ReaPack/main/index.xml\par}
-{\pard \ql \f0 \sa180 \li360 \fi-360 3.\tx360\tab Open {\b Extensions \u8594? ReaPack \u8594? Browse packages}, find {\b Flat Madness}, select the effects you want, and choose {\b Install \u8594? Apply}.\sa180\par}
+{\pard \ql \f0 \sa180 \li360 \fi-360 3.\tx360\tab Open {\b Extensions \u8594 ? ReaPack \u8594 ? Browse packages}, find {\b Flat Madness}, select the effects you want, and choose {\b Install \u8594 ? Apply}.\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 The effects install directly into {\f1 Effects/Flat Madness/} inside the REAPER resource folder. Their original filenames are preserved. BBQ's five PNG files install into {\f1 Effects/Flat Madness/BBQ-assets/} automatically.\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 If these effects were previously installed manually at the same paths, keep a backup of any personal edits before using ReaPack to manage them.\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Included effects\par}
