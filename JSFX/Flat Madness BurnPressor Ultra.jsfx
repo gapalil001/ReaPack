@@ -1,0 +1,1178 @@
+desc: BurnPressor Ultra (Flat Madness)
+// @version 1.0
+// @author Dmytro Hapochka
+// @link https://github.com/gapalil001/ReaPack
+// @changelog Initial ReaPack release; processing code and parameters preserved.
+// @provides
+//   Flat Madness BurnPressor Ultra.jsfx > ../Flat Madness BurnPressor Ultra.jsfx
+
+options: no_meter
+// Tags: dynamics, compressor, saturation
+
+// Define 8 inputs to support multiple sidechain routing options
+in_pin:Main L
+in_pin:Main R
+in_pin:Aux 1 L (3)
+in_pin:Aux 1 R (4)
+in_pin:Aux 2 L (5)
+in_pin:Aux 2 R (6)
+in_pin:Aux 3 L (7)
+in_pin:Aux 3 R (8)
+out_pin:Main L
+out_pin:Main R
+
+slider1:thresh=0<-30,0,0.1>-Threshold (dB)
+slider2:ratio=4<1.0,100,0.1>-Ratio (:1)
+slider3:att=20<0.01,500,0.01>-Attack (ms)
+slider4:rel=100<0.1,10000,0.1>-Release (ms)
+slider5:schp=150<0,20000,1>-Sidechain HP (Hz)
+slider6:sclp=20000<0,20000,1>-Sidechain LP (Hz) 
+slider7:knee=0<0,24,0.1>-Knee Size (dB)
+slider8:dry_pct=0<0,100,1>-Dry (%)
+slider9:wet_pct=100<0,100,1>-Wet (%)
+slider10:link_btn=0<0,1,1>-Link Dry/Wet
+slider11:makeup=0<0,30,0.1>-Makeup (dB)
+slider12:sc_ch=0<0,3,1{Main 1/2,Aux 3/4,Aux 5/6,Aux 7/8}>-SC Source
+
+// PRE SATURATORS 
+slider13:pre_td=0<0,100,0.1>-Pre 1 Drive (%)
+slider14:pre_tw=100<0,100,0.1>-Pre 1 Wet (%)
+slider15:pre_vd=0<0,100,0.1>-Pre 2 Drive (%)
+slider16:pre_vw=100<0,100,0.1>-Pre 2 Wet (%)
+slider17:pre_fd=0<0,100,0.1>-Pre 3 Drive (%)
+slider18:pre_fw=100<0,100,0.1>-Pre 3 Wet (%)
+
+// POST SATURATORS 
+slider19:post_td=0<0,100,0.1>-Post 1 Drive (%)
+slider20:post_tw=100<0,100,0.1>-Post 1 Wet (%)
+slider21:post_vd=0<0,100,0.1>-Post 2 Drive (%)
+slider22:post_vw=100<0,100,0.1>-Post 2 Wet (%)
+slider23:post_fd=0<0,100,0.1>-Post 3 Drive (%)
+slider24:post_fw=100<0,100,0.1>-Post 3 Wet (%)
+
+// INDEPENDENT SATURATION ROUTING & IO
+slider25:pre_sat_mode=1<0,1,1{Series,Parallel}>-Pre Sat Routing
+slider26:post_sat_mode=1<0,1,1{Series,Parallel}>-Post Sat Routing
+slider27:in_gain=0<-60,15,0.1>-Input (dB)
+slider28:out_gain=0<-60,15,0.1>-Output (dB)
+
+// PRE RANGES
+slider29:pt_hp=20<20,20000,1>-Pre 1 HP
+slider30:pt_lp=20000<20,20000,1>-Pre 1 LP
+slider31:pv_hp=20<20,20000,1>-Pre 2 HP
+slider32:pv_lp=20000<20,20000,1>-Pre 2 LP
+slider33:pf_hp=20<20,20000,1>-Pre 3 HP
+slider34:pf_lp=20000<20,20000,1>-Pre 3 LP
+
+// POST RANGES
+slider35:xt_hp=20<20,20000,1>-Post 1 HP
+slider36:xt_lp=20000<20,20000,1>-Post 1 LP
+slider37:xv_hp=20<20,20000,1>-Post 2 HP
+slider38:xv_lp=20000<20,20000,1>-Post 2 HP
+slider39:xf_hp=20<20,20000,1>-Post 3 HP
+slider40:xf_lp=20000<20,20000,1>-Post 3 LP
+
+// STAGE BYPASS & GLOBALS
+slider41:pre_sat_on=1<0,1,1>-Pre Saturation On
+slider42:post_sat_on=1<0,1,1>-Post Saturation On
+slider49:clipper_on=1<0,1,1>-Output Clipper
+
+// TYPE SELECTORS
+slider43:pre_t1_type=0<0,7,1{Tube,VCA,FET,Soft Clip,Hard Clip,Foldback,Diode Ge,Diode Si}>-Pre 1 Type
+slider44:pre_t2_type=1<0,7,1{Tube,VCA,FET,Soft Clip,Hard Clip,Foldback,Diode Ge,Diode Si}>-Pre 2 Type
+slider45:pre_t3_type=2<0,7,1{Tube,VCA,FET,Soft Clip,Hard Clip,Foldback,Diode Ge,Diode Si}>-Pre 3 Type
+slider46:post_t1_type=0<0,7,1{Tube,VCA,FET,Soft Clip,Hard Clip,Foldback,Diode Ge,Diode Si}>-Post 1 Type
+slider47:post_t2_type=1<0,7,1{Tube,VCA,FET,Soft Clip,Hard Clip,Foldback,Diode Ge,Diode Si}>-Post 2 Type
+slider48:post_t3_type=2<0,7,1{Tube,VCA,FET,Soft Clip,Hard Clip,Foldback,Diode Ge,Diode Si}>-Post 3 Type
+
+// L/R & M/S ENGINE
+slider50:stereo_mode=0<0,1,1{Left/Right,Mid/Side}>-Stereo Mode
+slider51:edit_target=1<0,2,1{Left/Mid,Linked,Right/Side}>-Edit Target
+
+
+@init
+gfx_ext_retina = 1; 
+ext_noinit = 1; // Prevent Reaper from clearing memory on playback/bypass stops
+gfx_aud_env = 0; 
+last_click_time = 0; last_mc = 0;
+
+// Clipper Trackers
+clip_env_db = 0; 
+clip_peak_db = 0; 
+disp_clip_peak = 0; 
+last_clip_time = 0;
+
+function tanh(x) local(e_minus_2x) (
+  e_minus_2x = exp(-2 * x);
+  (1 - e_minus_2x) / (1 + e_minus_2x);
+);
+
+env_pt = 0; env_pv = 0; env_pf = 0;
+env_xt = 0; env_xv = 0; env_xf = 0;
+
+// Dual-Mono Memory Banks
+mem_L = 10000; mem_R = 10100; last_sliders = 10200;
+
+// Initialize hard defaults ONLY if memory is completely empty 
+mem_L[1] == 0 ? (
+  mem_L[0]=0; mem_L[1]=4; mem_L[2]=20; mem_L[3]=100; mem_L[4]=150; mem_L[5]=20000; mem_L[6]=0; mem_L[7]=0;
+  mem_L[8]=0; mem_L[9]=100; mem_L[10]=0; mem_L[11]=100; mem_L[12]=0; mem_L[13]=100;
+  mem_L[14]=0; mem_L[15]=100; mem_L[16]=0; mem_L[17]=100; mem_L[18]=0; mem_L[19]=100;
+  mem_L[20]=20; mem_L[21]=20000; mem_L[22]=20; mem_L[23]=20000; mem_L[24]=20; mem_L[25]=20000;
+  mem_L[26]=20; mem_L[27]=20000; mem_L[28]=20; mem_L[29]=20000; mem_L[30]=20; mem_L[31]=20000;
+  mem_L[32]=0; mem_L[33]=1; mem_L[34]=2; mem_L[35]=0; mem_L[36]=1; mem_L[37]=2;
+  i=0; loop(38, mem_R[i]=mem_L[i]; i+=1;);
+);
+
+// Unified Biquad filters
+function bq_hp(freq, q) instance(n0,n1,n2,d1,d2) local(w, alpha, cosw, a0) (
+  w = 2 * $pi * max(freq, 10) / srate; alpha = sin(w) / (2 * q); cosw = cos(w); a0 = 1 + alpha;
+  n0 = (1 + cosw) / 2 / a0; n1 = -(1 + cosw) / a0; n2 = (1 + cosw) / 2 / a0;
+  d1 = -2 * cosw / a0; d2 = (1 - alpha) / a0;
+);
+function bq_lp(freq, q) instance(n0,n1,n2,d1,d2) local(w, alpha, cosw, a0) (
+  w = 2 * $pi * min(freq, 20000) / srate; alpha = sin(w) / (2 * q); cosw = cos(w); a0 = 1 + alpha;
+  n0 = (1 - cosw) / 2 / a0; n1 = (1 - cosw) / a0; n2 = (1 - cosw) / 2 / a0;
+  d1 = -2 * cosw / a0; d2 = (1 - alpha) / a0;
+);
+function bq_run(in) instance(n0,n1,n2,d1,d2,z1,z2,out1,out2) local(out) (
+  out = n0*in + n1*z1 + n2*z2 - d1*out1 - d2*out2;
+  z2 = z1; z1 = in; out2 = out1; out1 = out; out;
+);
+
+// Linkwitz-Riley 4 (24dB/oct) Wrappers
+function lr4_hp(freq) instance(f1, f2) (
+  f1.bq_hp(freq, 0.7071);
+  f2.bq_hp(freq, 0.7071);
+);
+function lr4_lp(freq) instance(f1, f2) (
+  f1.bq_lp(freq, 0.7071);
+  f2.bq_lp(freq, 0.7071);
+);
+function lr4_run(in) instance(f1, f2) (
+  f2.bq_run(f1.bq_run(in));
+);
+
+function clamp(val, min_val, max_val) ( min(max(val, min_val), max_val); );
+
+function sign(val) ( val > 0 ? 1 : val < 0 ? -1 : 0; );
+
+function process_sat(in, type, foo) local(sat, v, th) (
+  type == 0 ? ( sat = in > 0 ? (1+foo)*in/(1+foo*abs(in)) : (1+foo*0.2)*in/(1+foo*0.2*abs(in)); ) : 
+  type == 1 ? ( sat = (1+foo)*in/(1+foo*abs(in)); ) : 
+  type == 2 ? ( sat = (1+(foo*2.5))*in/(1+(foo*2.5)*abs(in)); ) :
+  type == 3 ? ( v = in * (1 + foo * 2.5); sat = abs(v) < 1 ? v - (v*v*v)/3 : sign(v) * (2/3); sat *= 1.5; ) :
+  type == 4 ? ( v = in * (1 + foo * 4.0); sat = max(min(v, 1.0), -1.0); ) :
+  type == 5 ? ( v = in * (1 + foo * 3.0); sat = sin(v * 1.5707963); ) :
+  type == 6 ? ( 
+      // ASYMMETRICAL Diode Germanium (0.3v knee)
+      th = 0.3; v = in * (1 + foo * 2.2);
+      sat = v > th ? (th + (1 - th) * tanh((v - th) / (1 - th))) : max(v, -1.0);
+    ) : ( 
+    // SYMMETRICAL Diode Silicon (0.7v knee)
+    th = 0.7; v = in * (1 + foo * 2.2);
+    sat = abs(v) <= th ? v : sign(v) * (th + (1 - th) * tanh((abs(v) - th) / (1 - th)));
+  );
+  sat;
+);
+
+MAX_POINTS = 640; TIME_FRAME_SEC = 2.0;
+wave_buf = 0; in_wave_buf = 1000; diff_buf = 2000;        
+s_count = 0; write_pos = 0; max_in = 0; max_out = 0; min_gr = 1;
+peak_env_L = 0; smooth_env_L = 0; peak_env_R = 0; smooth_env_R = 0; 
+show_grid = 1; grid_v = 3000; 
+grid_v[0] = -1; grid_v[1] = -2; grid_v[2] = -3; grid_v[3] = -4; grid_v[4] = -5;
+grid_v[5] = -6; grid_v[6] = -12; grid_v[7] = -18; grid_v[8] = -24; 
+num_grid = 9; db2log = 0.11512925464970228420089957273422; 
+
+
+@serialize
+// Save independent channel memory blocks into project file
+file_mem(0, mem_L, 38);
+file_mem(0, mem_R, 38);
+
+
+@block
+// --- DYNAMIC SRATE CHECK FOR VISUALIZER SPEED ---
+srate > 0 ? samples_per_pixel = floor(srate / (MAX_POINTS / TIME_FRAME_SEC)) : samples_per_pixel = 137;
+
+// --- SYNC GUI TO MEMORY ARRAYS ---
+function sync_mem(s_val, idx) (
+  last_sliders[idx] != s_val ? (
+    edit_target == 1 ? ( mem_L[idx] = s_val; mem_R[idx] = s_val; ) :
+    edit_target == 0 ? ( mem_L[idx] = s_val; ) : ( mem_R[idx] = s_val; );
+    last_sliders[idx] = s_val;
+  );
+);
+sync_mem(slider1,0); sync_mem(slider2,1); sync_mem(slider3,2); sync_mem(slider4,3); sync_mem(slider5,4); sync_mem(slider6,5); sync_mem(slider7,6); sync_mem(slider11,7);
+sync_mem(slider13,8); sync_mem(slider14,9); sync_mem(slider15,10); sync_mem(slider16,11); sync_mem(slider17,12); sync_mem(slider18,13);
+sync_mem(slider19,14); sync_mem(slider20,15); sync_mem(slider21,16); sync_mem(slider22,17); sync_mem(slider23,18); sync_mem(slider24,19);
+sync_mem(slider29,20); sync_mem(slider30,21); sync_mem(slider31,22); sync_mem(slider32,23); sync_mem(slider33,24); sync_mem(slider34,25);
+sync_mem(slider35,26); sync_mem(slider36,27); sync_mem(slider37,28); sync_mem(slider38,29); sync_mem(slider39,30); sync_mem(slider40,31);
+sync_mem(slider43,32); sync_mem(slider44,33); sync_mem(slider45,34); sync_mem(slider46,35); sync_mem(slider47,36); sync_mem(slider48,37);
+
+// --- INDEPENDENT DSP SETUP ---
+sc_hp1_L.bq_hp(max(mem_L[4], 10), 0.7071); sc_hp2_L.bq_hp(max(mem_L[4], 10), 0.7071); 
+sc_lp1_L.bq_lp(min(mem_L[5], 20000), 0.7071); sc_lp2_L.bq_lp(min(mem_L[5], 20000), 0.7071);
+sc_hp1_R.bq_hp(max(mem_R[4], 10), 0.7071); sc_hp2_R.bq_hp(max(mem_R[4], 10), 0.7071); 
+sc_lp1_R.bq_lp(min(mem_R[5], 20000), 0.7071); sc_lp2_R.bq_lp(min(mem_R[5], 20000), 0.7071);
+
+dry_gain = dry_pct / 100; wet_gain = wet_pct / 100;
+att_coeff_L = exp(-1 / (srate * (mem_L[2] / 1000))); rel_coeff_L = exp(-1 / (srate * (mem_L[3] / 1000))); linear_makeup_L = 10 ^ (mem_L[7] / 20);
+att_coeff_R = exp(-1 / (srate * (mem_R[2] / 1000))); rel_coeff_R = exp(-1 / (srate * (mem_R[3] / 1000))); linear_makeup_R = 10 ^ (mem_R[7] / 20);
+
+in_gain <= -59.9 ? ig_lin = 0.0 : ig_lin = 10 ^ (in_gain / 20);
+out_gain <= -59.9 ? og_lin = 0.0 : og_lin = 10 ^ (out_gain / 20);
+
+function get_comp(drv_v, type) ( type == 2 ? 1.0 - (drv_v * 0.5) : 1.0 - (drv_v * 0.4); );
+
+// Pre Sat L
+pt_drv_v_L = min(mem_L[8]/100, 0.999); pt_foo_L = 2*pt_drv_v_L/(1-pt_drv_v_L); pt_wet_v_L = mem_L[9]/100; pt_comp_L = get_comp(pt_drv_v_L, mem_L[32]);
+pv_drv_v_L = min(mem_L[10]/100, 0.999); pv_foo_L = 2*pv_drv_v_L/(1-pv_drv_v_L); pv_wet_v_L = mem_L[11]/100; pv_comp_L = get_comp(pv_drv_v_L, mem_L[33]);
+pf_drv_v_L = min(mem_L[12]/100, 0.999); pf_foo_L = 2*pf_drv_v_L/(1-pf_drv_v_L); pf_wet_v_L = mem_L[13]/100; pf_comp_L = get_comp(pf_drv_v_L, mem_L[34]);
+
+pt_hp_pass_L.lr4_hp(mem_L[20]); pt_hp_cut_L.lr4_lp(mem_L[20]); pt_lp_pass_L.lr4_lp(mem_L[21]); pt_lp_cut_L.lr4_hp(mem_L[21]);
+pv_hp_pass_L.lr4_hp(mem_L[22]); pv_hp_cut_L.lr4_lp(mem_L[22]); pv_lp_pass_L.lr4_lp(mem_L[23]); pv_lp_cut_L.lr4_hp(mem_L[23]);
+pf_hp_pass_L.lr4_hp(mem_L[24]); pf_hp_cut_L.lr4_lp(mem_L[24]); pf_lp_pass_L.lr4_lp(mem_L[25]); pf_lp_cut_L.lr4_hp(mem_L[25]);
+
+// Pre Sat R
+pt_drv_v_R = min(mem_R[8]/100, 0.999); pt_foo_R = 2*pt_drv_v_R/(1-pt_drv_v_R); pt_wet_v_R = mem_R[9]/100; pt_comp_R = get_comp(pt_drv_v_R, mem_R[32]);
+pv_drv_v_R = min(mem_R[10]/100, 0.999); pv_foo_R = 2*pv_drv_v_R/(1-pv_drv_v_R); pv_wet_v_R = mem_R[11]/100; pv_comp_R = get_comp(pv_drv_v_R, mem_R[33]);
+pf_drv_v_R = min(mem_R[12]/100, 0.999); pf_foo_R = 2*pf_drv_v_R/(1-pf_drv_v_R); pf_wet_v_R = mem_R[13]/100; pf_comp_R = get_comp(pf_drv_v_R, mem_R[34]);
+
+pt_hp_pass_R.lr4_hp(mem_R[20]); pt_hp_cut_R.lr4_lp(mem_R[20]); pt_lp_pass_R.lr4_lp(mem_R[21]); pt_lp_cut_R.lr4_hp(mem_R[21]);
+pv_hp_pass_R.lr4_hp(mem_R[22]); pv_hp_cut_R.lr4_lp(mem_R[22]); pv_lp_pass_R.lr4_lp(mem_R[23]); pv_lp_cut_R.lr4_hp(mem_R[23]);
+pf_hp_pass_R.lr4_hp(mem_R[24]); pf_hp_cut_R.lr4_lp(mem_R[24]); pf_lp_pass_R.lr4_lp(mem_R[25]); pf_lp_cut_R.lr4_hp(mem_R[25]);
+
+// Post Sat L
+xt_drv_v_L = min(mem_L[14]/100, 0.999); xt_foo_L = 2*xt_drv_v_L/(1-xt_drv_v_L); xt_wet_v_L = mem_L[15]/100; xt_comp_L = get_comp(xt_drv_v_L, mem_L[35]);
+xv_drv_v_L = min(mem_L[16]/100, 0.999); xv_foo_L = 2*xv_drv_v_L/(1-xv_drv_v_L); xv_wet_v_L = mem_L[17]/100; xv_comp_L = get_comp(xv_drv_v_L, mem_L[36]);
+xf_drv_v_L = min(mem_L[18]/100, 0.999); xf_foo_L = 2*xf_drv_v_L/(1-xf_drv_v_L); xf_wet_v_L = mem_L[19]/100; xf_comp_L = get_comp(xf_drv_v_L, mem_L[37]);
+
+xt_hp_pass_L.lr4_hp(mem_L[26]); xt_hp_cut_L.lr4_lp(mem_L[26]); xt_lp_pass_L.lr4_lp(mem_L[27]); xt_lp_cut_L.lr4_hp(mem_L[27]);
+xv_hp_pass_L.lr4_hp(mem_L[28]); xv_hp_cut_L.lr4_lp(mem_L[28]); xv_lp_pass_L.lr4_lp(mem_L[29]); xv_lp_cut_L.lr4_hp(mem_L[29]);
+xf_hp_pass_L.lr4_hp(mem_L[30]); xf_hp_cut_L.lr4_lp(mem_L[30]); xf_lp_pass_L.lr4_lp(mem_L[31]); xf_lp_cut_L.lr4_hp(mem_L[31]);
+
+// Post Sat R
+xt_drv_v_R = min(mem_R[14]/100, 0.999); xt_foo_R = 2*xt_drv_v_R/(1-xt_drv_v_R); xt_wet_v_R = mem_R[15]/100; xt_comp_R = get_comp(xt_drv_v_R, mem_R[35]);
+xv_drv_v_R = min(mem_R[16]/100, 0.999); xv_foo_R = 2*xv_drv_v_R/(1-xv_drv_v_R); xv_wet_v_R = mem_R[17]/100; xv_comp_R = get_comp(xv_drv_v_R, mem_R[36]);
+xf_drv_v_R = min(mem_R[18]/100, 0.999); xf_foo_R = 2*xf_drv_v_R/(1-xf_drv_v_R); xf_wet_v_R = mem_R[19]/100; xf_comp_R = get_comp(xf_drv_v_R, mem_R[37]);
+
+xt_hp_pass_R.lr4_hp(mem_R[26]); xt_hp_cut_R.lr4_lp(mem_R[26]); xt_lp_pass_R.lr4_lp(mem_R[27]); xt_lp_cut_R.lr4_hp(mem_R[27]);
+xv_hp_pass_R.lr4_hp(mem_R[28]); xv_hp_cut_R.lr4_lp(mem_R[28]); xv_lp_pass_R.lr4_lp(mem_R[29]); xv_lp_cut_R.lr4_hp(mem_R[29]);
+xf_hp_pass_R.lr4_hp(mem_R[30]); xf_hp_cut_R.lr4_lp(mem_R[30]); xf_lp_pass_R.lr4_lp(mem_R[31]); xf_lp_cut_R.lr4_hp(mem_R[31]);
+
+// Filter Bypasses
+pt_filt_on_L = (mem_L[20] > 20 || mem_L[21] < 20000); pv_filt_on_L = (mem_L[22] > 20 || mem_L[23] < 20000); pf_filt_on_L = (mem_L[24] > 20 || mem_L[25] < 20000);
+pt_filt_on_R = (mem_R[20] > 20 || mem_R[21] < 20000); pv_filt_on_R = (mem_R[22] > 20 || mem_R[23] < 20000); pf_filt_on_R = (mem_R[24] > 20 || mem_R[25] < 20000);
+xt_filt_on_L = (mem_L[26] > 20 || mem_L[27] < 20000); xv_filt_on_L = (mem_L[28] > 20 || mem_L[29] < 20000); xf_filt_on_L = (mem_L[30] > 20 || mem_L[31] < 20000);
+xt_filt_on_R = (mem_R[26] > 20 || mem_R[27] < 20000); xv_filt_on_R = (mem_R[28] > 20 || mem_R[29] < 20000); xf_filt_on_R = (mem_R[30] > 20 || mem_R[31] < 20000);
+
+
+@sample
+raw_in_L = spl0; raw_in_R = spl1;
+in_L = spl0 * ig_lin; in_R = spl1 * ig_lin;
+
+// Encode M/S Matrix
+stereo_mode == 1 ? (
+  ms_mid = (in_L + in_R) * 0.5; ms_side = (in_L - in_R) * 0.5;
+  in_L = ms_mid; in_R = ms_side;
+  raw_mid = (raw_in_L + raw_in_R) * 0.5; raw_side = (raw_in_L - raw_in_R) * 0.5;
+  raw_in_L = raw_mid; raw_in_R = raw_side;
+);
+
+// --- STAGE 1: PRE-SATURATION ---
+pre_sat_on == 1 ? (
+  pre_sat_mode == 1 ? (
+    // --- DELTA PARALLEL (3-Band Trees) ---
+    // Pre 1 (Tube)
+    pt_filt_on_L ? (
+      pt_low_L = pt_hp_cut_L.lr4_run(in_L); pt_mh_L = pt_hp_pass_L.lr4_run(in_L);
+      pt_mid_L = pt_lp_pass_L.lr4_run(pt_mh_L); pt_high_L = pt_lp_cut_L.lr4_run(pt_mh_L);
+      pt_gap_L = pt_low_L + pt_high_L;
+    ) : ( pt_gap_L = 0; pt_mid_L = in_L; );
+    pt_filt_on_R ? (
+      pt_low_R = pt_hp_cut_R.lr4_run(in_R); pt_mh_R = pt_hp_pass_R.lr4_run(in_R);
+      pt_mid_R = pt_lp_pass_R.lr4_run(pt_mh_R); pt_high_R = pt_lp_cut_R.lr4_run(pt_mh_R);
+      pt_gap_R = pt_low_R + pt_high_R;
+    ) : ( pt_gap_R = 0; pt_mid_R = in_R; );
+    t_sat_L = process_sat(pt_mid_L, mem_L[32], pt_foo_L) * pt_comp_L;
+    t_sat_R = process_sat(pt_mid_R, mem_R[32], pt_foo_R) * pt_comp_R;
+
+    // Pre 2 (VCA)
+    pv_filt_on_L ? (
+      pv_low_L = pv_hp_cut_L.lr4_run(in_L); pv_mh_L = pv_hp_pass_L.lr4_run(in_L);
+      pv_mid_L = pv_lp_pass_L.lr4_run(pv_mh_L); pv_high_L = pv_lp_cut_L.lr4_run(pv_mh_L);
+      pv_gap_L = pv_low_L + pv_high_L;
+    ) : ( pv_gap_L = 0; pv_mid_L = in_L; );
+    pv_filt_on_R ? (
+      pv_low_R = pv_hp_cut_R.lr4_run(in_R); pv_mh_R = pv_hp_pass_R.lr4_run(in_R);
+      pv_mid_R = pv_lp_pass_R.lr4_run(pv_mh_R); pv_high_R = pv_lp_cut_R.lr4_run(pv_mh_R);
+      pv_gap_R = pv_low_R + pv_high_R;
+    ) : ( pv_gap_R = 0; pv_mid_R = in_R; );
+    v_sat_L = process_sat(pv_mid_L, mem_L[33], pv_foo_L) * pv_comp_L;
+    v_sat_R = process_sat(pv_mid_R, mem_R[33], pv_foo_R) * pv_comp_R;
+
+    // Pre 3 (FET)
+    pf_filt_on_L ? (
+      pf_low_L = pf_hp_cut_L.lr4_run(in_L); pf_mh_L = pf_hp_pass_L.lr4_run(in_L);
+      pf_mid_L = pf_lp_pass_L.lr4_run(pf_mh_L); pf_high_L = pf_lp_cut_L.lr4_run(pf_mh_L);
+      pf_gap_L = pf_low_L + pf_high_L;
+    ) : ( pf_gap_L = 0; pf_mid_L = in_L; );
+    pf_filt_on_R ? (
+      pf_low_R = pf_hp_cut_R.lr4_run(in_R); pf_mh_R = pf_hp_pass_R.lr4_run(in_R);
+      pf_mid_R = pf_lp_pass_R.lr4_run(pf_mh_R); pf_high_R = pf_lp_cut_R.lr4_run(pf_mh_R);
+      pf_gap_R = pf_low_R + pf_high_R;
+    ) : ( pf_gap_R = 0; pf_mid_R = in_R; );
+    f_sat_L = process_sat(pf_mid_L, mem_L[34], pf_foo_L) * pf_comp_L;
+    f_sat_R = process_sat(pf_mid_R, mem_R[34], pf_foo_R) * pf_comp_R;
+
+    // Parallel Summation (adds only pure wet saturation delta to prevent multiplying gaps)
+    in_L = in_L + ((t_sat_L - pt_mid_L) * pt_wet_v_L) + ((v_sat_L - pv_mid_L) * pv_wet_v_L) + ((f_sat_L - pf_mid_L) * pf_wet_v_L);
+    in_R = in_R + ((t_sat_R - pt_mid_R) * pt_wet_v_R) + ((v_sat_R - pv_mid_R) * pv_wet_v_R) + ((f_sat_R - pf_mid_R) * pf_wet_v_R);
+  ) : (
+    // --- DELTA SERIES (3-Band Trees) ---
+    // Pre 1 (Tube)
+    pt_filt_on_L ? (
+      pt_low_L = pt_hp_cut_L.lr4_run(in_L); pt_mh_L = pt_hp_pass_L.lr4_run(in_L);
+      pt_mid_L = pt_lp_pass_L.lr4_run(pt_mh_L); pt_high_L = pt_lp_cut_L.lr4_run(pt_mh_L);
+      pt_gap_L = pt_low_L + pt_high_L;
+    ) : ( pt_gap_L = 0; pt_mid_L = in_L; );
+    pt_filt_on_R ? (
+      pt_low_R = pt_hp_cut_R.lr4_run(in_R); pt_mh_R = pt_hp_pass_R.lr4_run(in_R);
+      pt_mid_R = pt_lp_pass_R.lr4_run(pt_mh_R); pt_high_R = pt_lp_cut_R.lr4_run(pt_mh_R);
+      pt_gap_R = pt_low_R + pt_high_R;
+    ) : ( pt_gap_R = 0; pt_mid_R = in_R; );
+    t_sat_L = process_sat(pt_mid_L, mem_L[32], pt_foo_L) * pt_comp_L;
+    t_sat_R = process_sat(pt_mid_R, mem_R[32], pt_foo_R) * pt_comp_R;
+    in_L = pt_gap_L + (t_sat_L * pt_wet_v_L) + (pt_mid_L * (1.0 - pt_wet_v_L));
+    in_R = pt_gap_R + (t_sat_R * pt_wet_v_R) + (pt_mid_R * (1.0 - pt_wet_v_R));
+
+    // Pre 2 (VCA)
+    pv_filt_on_L ? (
+      pv_low_L = pv_hp_cut_L.lr4_run(in_L); pv_mh_L = pv_hp_pass_L.lr4_run(in_L);
+      pv_mid_L = pv_lp_pass_L.lr4_run(pv_mh_L); pv_high_L = pv_lp_cut_L.lr4_run(pv_mh_L);
+      pv_gap_L = pv_low_L + pv_high_L;
+    ) : ( pv_gap_L = 0; pv_mid_L = in_L; );
+    pv_filt_on_R ? (
+      pv_low_R = pv_hp_cut_R.lr4_run(in_R); pv_mh_R = pv_hp_pass_R.lr4_run(in_R);
+      pv_mid_R = pv_lp_pass_R.lr4_run(pv_mh_R); pv_high_R = pv_lp_cut_R.lr4_run(pv_mh_R);
+      pv_gap_R = pv_low_R + pv_high_R;
+    ) : ( pv_gap_R = 0; pv_mid_R = in_R; );
+    v_sat_L = process_sat(pv_mid_L, mem_L[33], pv_foo_L) * pv_comp_L;
+    v_sat_R = process_sat(pv_mid_R, mem_R[33], pv_foo_R) * pv_comp_R;
+    in_L = pv_gap_L + (v_sat_L * pv_wet_v_L) + (pv_mid_L * (1.0 - pv_wet_v_L));
+    in_R = pv_gap_R + (v_sat_R * pv_wet_v_R) + (pv_mid_R * (1.0 - pv_wet_v_R));
+
+    // Pre 3 (FET)
+    pf_filt_on_L ? (
+      pf_low_L = pf_hp_cut_L.lr4_run(in_L); pf_mh_L = pf_hp_pass_L.lr4_run(in_L);
+      pf_mid_L = pf_lp_pass_L.lr4_run(pf_mh_L); pf_high_L = pf_lp_cut_L.lr4_run(pf_mh_L);
+      pf_gap_L = pf_low_L + pf_high_L;
+    ) : ( pf_gap_L = 0; pf_mid_L = in_L; );
+    pf_filt_on_R ? (
+      pf_low_R = pf_hp_cut_R.lr4_run(in_R); pf_mh_R = pf_hp_pass_R.lr4_run(in_R);
+      pf_mid_R = pf_lp_pass_R.lr4_run(pf_mh_R); pf_high_R = pf_lp_cut_R.lr4_run(pf_mh_R);
+      pf_gap_R = pf_low_R + pf_high_R;
+    ) : ( pf_gap_R = 0; pf_mid_R = in_R; );
+    f_sat_L = process_sat(pf_mid_L, mem_L[34], pf_foo_L) * pf_comp_L;
+    f_sat_R = process_sat(pf_mid_R, mem_R[34], pf_foo_R) * pf_comp_R;
+    in_L = pf_gap_L + (f_sat_L * pf_wet_v_L) + (pf_mid_L * (1.0 - pf_wet_v_L));
+    in_R = pf_gap_R + (f_sat_R * pf_wet_v_R) + (pf_mid_R * (1.0 - pf_wet_v_R));
+  );
+
+  p_pt = max(abs(t_sat_L), abs(t_sat_R)); p_pt > env_pt ? env_pt += (p_pt - env_pt)*0.1 : env_pt *= 0.99;
+  p_pv = max(abs(v_sat_L), abs(v_sat_R)); p_pv > env_pv ? env_pv += (p_pv - env_pv)*0.1 : env_pv *= 0.99;
+  p_pf = max(abs(f_sat_L), abs(f_sat_R)); p_pf > env_pf ? env_pf += (p_pf - env_pf)*0.1 : env_pf *= 0.99;
+) : (
+  env_pt *= 0.99; env_pv *= 0.99; env_pf *= 0.99;
+);
+
+
+// --- STAGE 2: DYNAMICS ---
+sc_ch == 0 ? ( sc_sig_L = in_L; sc_sig_R = in_R; ) : 
+sc_ch == 1 ? ( sc_sig_L = spl2; sc_sig_R = spl3; stereo_mode == 1 ? (sc_sig_L=(spl2+spl3)*0.5; sc_sig_R=(spl2-spl3)*0.5;) : 0; ) :
+sc_ch == 2 ? ( sc_sig_L = spl4; sc_sig_R = spl5; stereo_mode == 1 ? (sc_sig_L=(spl4+spl5)*0.5; sc_sig_R=(spl4-spl5)*0.5;) : 0; ) :
+             ( sc_sig_L = spl6; sc_sig_R = spl7; stereo_mode == 1 ? (sc_sig_L=(spl6+spl7)*0.5; sc_sig_R=(spl6-spl7)*0.5;) : 0; );
+
+mem_L[4] > 5 ? ( sc_sig_L = sc_hp1_L.bq_run(sc_sig_L); sc_sig_L = sc_hp2_L.bq_run(sc_sig_L); );
+mem_L[5] < 19900 ? ( sc_sig_L = sc_lp1_L.bq_run(sc_sig_L); sc_sig_L = sc_lp2_L.bq_run(sc_sig_L); );
+mem_R[4] > 5 ? ( sc_sig_R = sc_hp1_R.bq_run(sc_sig_R); sc_sig_R = sc_hp2_R.bq_run(sc_sig_R); );
+mem_R[5] < 19900 ? ( sc_sig_R = sc_lp1_R.bq_run(sc_sig_R); sc_sig_R = sc_lp2_R.bq_run(sc_sig_R); );
+
+sc_abs_L = abs(sc_sig_L); sc_abs_R = abs(sc_sig_R);
+edit_target == 1 ? ( sc_abs_L = max(sc_abs_L, sc_abs_R); sc_abs_R = sc_abs_L; ); // Link SC if editing Linked
+
+sc_abs_L > peak_env_L ? peak_env_L = sc_abs_L : peak_env_L = peak_env_L * rel_coeff_L;
+peak_env_L > smooth_env_L ? smooth_env_L = smooth_env_L * att_coeff_L + peak_env_L * (1.0 - att_coeff_L) : smooth_env_L = peak_env_L;
+sc_abs_R > peak_env_R ? peak_env_R = sc_abs_R : peak_env_R = peak_env_R * rel_coeff_R;
+peak_env_R > smooth_env_R ? smooth_env_R = smooth_env_R * att_coeff_R + peak_env_R * (1.0 - att_coeff_R) : smooth_env_R = peak_env_R;
+
+level_db_L = 20 * log10(max(smooth_env_L, 0.00001));
+diff_L = level_db_L - mem_L[0]; knee_half_L = mem_L[6] / 2; target_gr_L = 0;
+diff_L < -knee_half_L ? target_gr_L = 0 : diff_L > knee_half_L ? target_gr_L = diff_L * (1 - 1/mem_L[1]) : target_gr_L = ((diff_L + knee_half_L)^2) / (2 * max(mem_L[6],0.001)) * (1 - 1/mem_L[1]);
+
+level_db_R = 20 * log10(max(smooth_env_R, 0.00001));
+diff_R = level_db_R - mem_R[0]; knee_half_R = mem_R[6] / 2; target_gr_R = 0;
+diff_R < -knee_half_R ? target_gr_R = 0 : diff_R > knee_half_R ? target_gr_R = diff_R * (1 - 1/mem_R[1]) : target_gr_R = ((diff_R + knee_half_R)^2) / (2 * max(mem_R[6],0.001)) * (1 - 1/mem_R[1]);
+
+linear_gr_L = 10 ^ (-target_gr_L / 20); comp_L = in_L * linear_gr_L * linear_makeup_L;
+linear_gr_R = 10 ^ (-target_gr_R / 20); comp_R = in_R * linear_gr_R * linear_makeup_R;
+
+
+// --- STAGE 3: POST-SATURATION ---
+post_sat_on == 1 ? (
+  post_sat_mode == 1 ? (
+    // --- DELTA PARALLEL (3-Band Trees) ---
+    // Post 1 (Tube)
+    xt_filt_on_L ? (
+      xt_low_L = xt_hp_cut_L.lr4_run(comp_L); xt_mh_L = xt_hp_pass_L.lr4_run(comp_L);
+      xt_mid_L = xt_lp_pass_L.lr4_run(xt_mh_L); xt_high_L = xt_lp_cut_L.lr4_run(xt_mh_L);
+      xt_gap_L = xt_low_L + xt_high_L;
+    ) : ( xt_gap_L = 0; xt_mid_L = comp_L; );
+    xt_filt_on_R ? (
+      xt_low_R = xt_hp_cut_R.lr4_run(comp_R); xt_mh_R = xt_hp_pass_R.lr4_run(comp_R);
+      xt_mid_R = xt_lp_pass_R.lr4_run(xt_mh_R); xt_high_R = xt_lp_cut_R.lr4_run(xt_mh_R);
+      xt_gap_R = xt_low_R + xt_high_R;
+    ) : ( xt_gap_R = 0; xt_mid_R = comp_R; );
+    t_sat_L = process_sat(xt_mid_L, mem_L[35], xt_foo_L) * xt_comp_L;
+    t_sat_R = process_sat(xt_mid_R, mem_R[35], xt_foo_R) * xt_comp_R;
+
+    // Post 2 (VCA)
+    xv_filt_on_L ? (
+      xv_low_L = xv_hp_cut_L.lr4_run(comp_L); xv_mh_L = xv_hp_pass_L.lr4_run(comp_L);
+      xv_mid_L = xv_lp_pass_L.lr4_run(xv_mh_L); xv_high_L = xv_lp_cut_L.lr4_run(xv_mh_L);
+      xv_gap_L = xv_low_L + xv_high_L;
+    ) : ( xv_gap_L = 0; xv_mid_L = comp_L; );
+    xv_filt_on_R ? (
+      xv_low_R = xv_hp_cut_R.lr4_run(comp_R); xv_mh_R = xv_hp_pass_R.lr4_run(comp_R);
+      xv_mid_R = xv_lp_pass_R.lr4_run(xv_mh_R); xv_high_R = xv_lp_cut_R.lr4_run(xv_mh_R);
+      xv_gap_R = xv_low_R + xv_high_R;
+    ) : ( xv_gap_R = 0; xv_mid_R = comp_R; );
+    v_sat_L = process_sat(xv_mid_L, mem_L[36], xv_foo_L) * xv_comp_L;
+    v_sat_R = process_sat(xv_mid_R, mem_R[36], xv_foo_R) * xv_comp_R;
+
+    // Post 3 (FET)
+    xf_filt_on_L ? (
+      xf_low_L = xf_hp_cut_L.lr4_run(comp_L); xf_mh_L = xf_hp_pass_L.lr4_run(comp_L);
+      xf_mid_L = xf_lp_pass_L.lr4_run(xf_mh_L); xf_high_L = xf_lp_cut_L.lr4_run(xf_mh_L);
+      xf_gap_L = xf_low_L + xf_high_L;
+    ) : ( xf_gap_L = 0; xf_mid_L = comp_L; );
+    xf_filt_on_R ? (
+      xf_low_R = xf_hp_cut_R.lr4_run(comp_R); xf_mh_R = xf_hp_pass_R.lr4_run(comp_R);
+      xf_mid_R = xf_lp_pass_R.lr4_run(xf_mh_R); xf_high_R = xf_lp_cut_R.lr4_run(xf_mh_R);
+      xf_gap_R = xf_low_R + xf_high_R;
+    ) : ( xf_gap_R = 0; xf_mid_R = comp_R; );
+    f_sat_L = process_sat(xf_mid_L, mem_L[37], xf_foo_L) * xf_comp_L;
+    f_sat_R = process_sat(xf_mid_R, mem_R[37], xf_foo_R) * xf_comp_R;
+
+    // Parallel Summation (pure wet saturation delta over dry comp)
+    comp_L = comp_L + ((t_sat_L - xt_mid_L) * xt_wet_v_L) + ((v_sat_L - xv_mid_L) * xv_wet_v_L) + ((f_sat_L - xf_mid_L) * xf_wet_v_L);
+    comp_R = comp_R + ((t_sat_R - xt_mid_R) * xt_wet_v_R) + ((v_sat_R - xv_mid_R) * xv_wet_v_R) + ((f_sat_R - xf_mid_R) * xf_wet_v_R);
+  ) : (
+    // --- DELTA SERIES (3-Band Trees) ---
+    // Post 1 (Tube)
+    xt_filt_on_L ? (
+      xt_low_L = xt_hp_cut_L.lr4_run(comp_L); xt_mh_L = xt_hp_pass_L.lr4_run(comp_L);
+      xt_mid_L = xt_lp_pass_L.lr4_run(xt_mh_L); xt_high_L = xt_lp_cut_L.lr4_run(xt_mh_L);
+      xt_gap_L = xt_low_L + xt_high_L;
+    ) : ( xt_gap_L = 0; xt_mid_L = comp_L; );
+    xt_filt_on_R ? (
+      xt_low_R = xt_hp_cut_R.lr4_run(comp_R); xt_mh_R = xt_hp_pass_R.lr4_run(comp_R);
+      xt_mid_R = xt_lp_pass_R.lr4_run(xt_mh_R); xt_high_R = xt_lp_cut_R.lr4_run(xt_mh_R);
+      xt_gap_R = xt_low_R + xt_high_R;
+    ) : ( xt_gap_R = 0; xt_mid_R = comp_R; );
+    t_sat_L = process_sat(xt_mid_L, mem_L[35], xt_foo_L) * xt_comp_L;
+    t_sat_R = process_sat(xt_mid_R, mem_R[35], xt_foo_R) * xt_comp_R;
+    comp_L = xt_gap_L + (t_sat_L * xt_wet_v_L) + (xt_mid_L * (1.0 - xt_wet_v_L));
+    comp_R = xt_gap_R + (t_sat_R * xt_wet_v_R) + (xt_mid_R * (1.0 - xt_wet_v_R));
+
+    // Post 2 (VCA)
+    xv_filt_on_L ? (
+      xv_low_L = xv_hp_cut_L.lr4_run(comp_L); xv_mh_L = xv_hp_pass_L.lr4_run(comp_L);
+      xv_mid_L = xv_lp_pass_L.lr4_run(xv_mh_L); xv_high_L = xv_lp_cut_L.lr4_run(xv_mh_L);
+      xv_gap_L = xv_low_L + xv_high_L;
+    ) : ( xv_gap_L = 0; xv_mid_L = comp_L; );
+    xv_filt_on_R ? (
+      xv_low_R = xv_hp_cut_R.lr4_run(comp_R); xv_mh_R = xv_hp_pass_R.lr4_run(comp_R);
+      xv_mid_R = xv_lp_pass_R.lr4_run(xv_mh_R); xv_high_R = xv_lp_cut_R.lr4_run(xv_mh_R);
+      xv_gap_R = xv_low_R + xv_high_R;
+    ) : ( xv_gap_R = 0; xv_mid_R = comp_R; );
+    v_sat_L = process_sat(xv_mid_L, mem_L[36], xv_foo_L) * xv_comp_L;
+    v_sat_R = process_sat(xv_mid_R, mem_R[36], xv_foo_R) * xv_comp_R;
+    comp_L = xv_gap_L + (v_sat_L * xv_wet_v_L) + (xv_mid_L * (1.0 - xv_wet_v_L));
+    comp_R = xv_gap_R + (v_sat_R * xv_wet_v_R) + (xv_mid_R * (1.0 - xv_wet_v_R));
+
+    // Post 3 (FET)
+    xf_filt_on_L ? (
+      xf_low_L = xf_hp_cut_L.lr4_run(comp_L); xf_mh_L = xf_hp_pass_L.lr4_run(comp_L);
+      xf_mid_L = xf_lp_pass_L.lr4_run(xf_mh_L); xf_high_L = xf_lp_cut_L.lr4_run(xf_mh_L);
+      xf_gap_L = xf_low_L + xf_high_L;
+    ) : ( xf_gap_L = 0; xf_mid_L = comp_L; );
+    xf_filt_on_R ? (
+      xf_low_R = xf_hp_cut_R.lr4_run(comp_R); xf_mh_R = xf_hp_pass_R.lr4_run(comp_R);
+      xf_mid_R = xf_lp_pass_R.lr4_run(xf_mh_R); xf_high_R = xf_lp_cut_R.lr4_run(xf_mh_R);
+      xf_gap_R = xf_low_R + xf_high_R;
+    ) : ( xf_gap_R = 0; xf_mid_R = comp_R; );
+    f_sat_L = process_sat(xf_mid_L, mem_L[37], xf_foo_L) * xf_comp_L;
+    f_sat_R = process_sat(xf_mid_R, mem_R[37], xf_foo_R) * xf_comp_R;
+    comp_L = xf_gap_L + (f_sat_L * xf_wet_v_L) + (xf_mid_L * (1.0 - xf_wet_v_L));
+    comp_R = xf_gap_R + (f_sat_R * xf_wet_v_R) + (xf_mid_R * (1.0 - xf_wet_v_R));
+  );
+
+  p_xt = max(abs(t_sat_L), abs(t_sat_R)); p_xt > env_xt ? env_xt += (p_xt - env_xt)*0.1 : env_xt *= 0.99;
+  p_xv = max(abs(v_sat_L), abs(v_sat_R)); p_xv > env_xv ? env_xv += (p_xv - env_xv)*0.1 : env_xv *= 0.99;
+  p_xf = max(abs(f_sat_L), abs(f_sat_R)); p_xf > env_xf ? env_xf += (p_xf - env_xf)*0.1 : env_xf *= 0.99;
+) : (
+  env_xt *= 0.99; env_xv *= 0.99; env_xf *= 0.99;
+);
+
+// Decode M/S Matrix
+stereo_mode == 1 ? (
+  final_L = comp_L + comp_R; final_R = comp_L - comp_R;
+  comp_L = final_L; comp_R = final_R;
+);
+
+// --- STAGE 4: FINAL DRY/WET MIX & OPTIONAL CLIPPER ---
+out_L = ((raw_in_L * dry_gain) + (comp_L * wet_gain)) * og_lin;
+out_R = ((raw_in_R * dry_gain) + (comp_R * wet_gain)) * og_lin;
+
+clipper_on == 1 ? ( spl0 = clamp(out_L, -1.0, 1.0); spl1 = clamp(out_R, -1.0, 1.0); ) : ( spl0 = out_L; spl1 = out_R; );
+
+// --- NEW CLIPPER GAIN REDUCTION MATH ---
+out_max = max(abs(out_L), abs(out_R));
+clipper_on == 1 && out_max > 1.0 ? inst_clip_db = 20 * log10(out_max) : inst_clip_db = 0;
+
+// 50ms smooth decay for the visual strip
+inst_clip_db > clip_env_db ? clip_env_db = inst_clip_db : clip_env_db *= exp(-1 / (srate * 0.05));
+// Hold the absolute peak for the text readout
+inst_clip_db > clip_peak_db ? clip_peak_db = inst_clip_db;
+
+edit_target == 2 ? min_gr = min(min_gr, linear_gr_R) : min_gr = min(min_gr, linear_gr_L);
+gfx_gr = edit_target == 2 ? target_gr_R : target_gr_L;
+
+// Visuals Write Buffer
+vis_sig = max(abs(spl0), abs(spl1)); vis_sig > gfx_aud_env ? gfx_aud_env += (vis_sig - gfx_aud_env) * 0.08 : gfx_aud_env *= 0.995;
+s_count += 1;
+s_count >= samples_per_pixel ? (
+  in_wave_buf[write_pos] = max_in; wave_buf[write_pos] = max_out; diff_buf[write_pos] = min_gr;
+  write_pos = (write_pos + 1) % MAX_POINTS; s_count = 0; max_in = 0; max_out = 0; min_gr = 1;
+) : (
+  max_in = max(max_in, max(abs(raw_in_L), abs(raw_in_R))); max_out = max(max_out, max(abs(spl0), abs(spl1)));
+);
+
+
+@gfx 1400 780
+// --- DYNAMIC SCALING ENGINE ---
+base_w = 1400; base_h = 780; 
+scale = max(min(gfx_w / base_w, gfx_h / base_h), 0.1); 
+x_offs = (gfx_w - (base_w * scale)) / 2; y_offs = (gfx_h - (base_h * scale)) / 2;
+p_size = max(1, ceil((size_rnd ^ 4.0) * 5.0 * scale));
+gfx_setfont(1, "Arial", 14 * scale);
+
+// --- MENU & MATH HELPERS ---
+function get_sat_menu(type) (
+  strcpy(#menu, type == 0 ? "!Tube|" : "Tube|");
+  strcat(#menu, type == 1 ? "!VCA|" : "VCA|");
+  strcat(#menu, type == 2 ? "!FET|" : "FET|");
+  strcat(#menu, type == 3 ? "!Soft Clip|" : "Soft Clip|");
+  strcat(#menu, type == 4 ? "!Hard Clip|" : "Hard Clip|");
+  strcat(#menu, type == 5 ? "!Foldback|" : "Foldback|");
+  strcat(#menu, type == 6 ? "!Diode Germanium|" : "Diode Germanium|");
+  strcat(#menu, type == 7 ? "!Diode Silicon" : "Diode Silicon");
+);
+function log_map(val, min_v, max_v) ( val <= min_v ? 0.0 : (log(val/min_v) / log(max_v/min_v)); );
+function inv_log_map(norm, min_v, max_v) ( norm <= 0.0 ? min_v : exp(norm * log(max_v/min_v)) * min_v; );
+function load_mem_to_sliders(m) (
+  slider1=m[0]; last_sliders[0]=m[0]; thresh=m[0]; slider2=m[1]; last_sliders[1]=m[1]; ratio=m[1];
+  slider3=m[2]; last_sliders[2]=m[2]; att=m[2]; slider4=m[3]; last_sliders[3]=m[3]; rel=m[3];
+  slider5=m[4]; last_sliders[4]=m[4]; schp=m[4]; slider6=m[5]; last_sliders[5]=m[5]; sclp=m[5];
+  slider7=m[6]; last_sliders[6]=m[6]; knee=m[6]; slider11=m[7]; last_sliders[7]=m[7]; makeup=m[7];
+  slider13=m[8]; last_sliders[8]=m[8]; pre_td=m[8]; slider14=m[9]; last_sliders[9]=m[9]; pre_vw=m[9];
+  slider15=m[10]; last_sliders[10]=m[10]; pre_vd=m[10]; slider16=m[11]; last_sliders[11]=m[11]; pre_vw=m[11];
+  slider17=m[12]; last_sliders[12]=m[12]; pre_fd=m[12]; slider18=m[13]; last_sliders[13]=m[13]; pre_fw=m[13];
+  slider19=m[14]; last_sliders[14]=m[14]; post_td=m[14]; slider20=m[15]; last_sliders[15]=m[15]; post_tw=m[15];
+  slider21=m[16]; last_sliders[16]=m[16]; post_vd=m[16]; slider22=m[17]; last_sliders[17]=m[17]; post_vw=m[17];
+  slider23=m[18]; last_sliders[18]=m[18]; post_fd=m[18]; slider24=m[19]; last_sliders[19]=m[19]; post_fw=m[19];
+  slider29=m[20]; last_sliders[20]=m[20]; pt_hp=m[20]; slider30=m[21]; last_sliders[21]=m[21]; pt_lp=m[21];
+  slider31=m[22]; last_sliders[22]=m[22]; pv_hp=m[22]; slider32=m[23]; last_sliders[23]=m[23]; pv_lp=m[23];
+  slider33=m[24]; last_sliders[24]=m[24]; pf_hp=m[24]; slider34=m[25]; last_sliders[25]=m[25]; pf_lp=m[25];
+  slider35=m[26]; last_sliders[26]=m[26]; xt_hp=m[26]; slider36=m[27]; last_sliders[27]=m[27]; xt_lp=m[27];
+  slider37=m[28]; last_sliders[28]=m[28]; xv_hp=m[28]; slider38=m[29]; last_sliders[29]=m[29]; xv_lp=m[29];
+  slider39=m[30]; last_sliders[30]=m[30]; xf_hp=m[30]; slider40=m[31]; last_sliders[31]=m[31]; xf_lp=m[31];
+  slider43=m[32]; last_sliders[32]=m[32]; pre_t1_type=m[32]; slider44=m[33]; last_sliders[33]=m[33]; pre_t2_type=m[33];
+  slider45=m[34]; last_sliders[34]=m[34]; pre_t3_type=m[34]; slider46=m[35]; last_sliders[35]=m[35]; post_t1_type=m[35];
+  slider47=m[36]; last_sliders[36]=m[36]; post_t2_type=m[36]; slider48=m[37]; last_sliders[37]=m[37]; post_t3_type=m[37];
+  sliderchange(0);
+);
+
+// --- LAYOUT ENGINE ---
+sat_sw = 30 * scale; sat_sh = 130 * scale; box_s = 150 * scale;
+row1_y = (70 * scale) + y_offs; row2_y = (260 * scale) + y_offs; row3_y = (450 * scale) + y_offs;
+
+disp_size = 490 * scale; disp_y = row1_y; th_w = 40 * scale; th_h = disp_size;
+pre_base_x = (40 * scale) + x_offs; th_x = pre_base_x + (sat_sw*2 + box_s + 20*scale) + 30 * scale;
+disp_x = th_x + th_w + 20 * scale; rt_x = disp_x + disp_size + 20 * scale; mk_x = rt_x + th_w + 20 * scale; 
+post_base_x = mk_x + th_w + 30 * scale; dr_x = post_base_x + (sat_sw*2 + box_s + 20*scale) + 30 * scale; wt_x = dr_x + th_w + 20 * scale;
+wave_draw_w = disp_size; wave_h = disp_size; top_h = disp_y; wave_x = disp_x;
+kn_x = disp_x; kn_y = disp_y + disp_size + 15 * scale; kn_w = disp_size; kn_h = 24 * scale; 
+filt_x = disp_x; filt_y = kn_y + kn_h + 8 * scale; sc_btn_w = 140 * scale; filt_w = disp_size - sc_btn_w - 8 * scale; filt_h = 24 * scale;
+sc_btn_x = filt_x + filt_w + 8 * scale; sc_btn_y = filt_y; sc_btn_h = 24 * scale;
+ar_y = filt_y + filt_h + 8 * scale; ar_w = (disp_size - 8 * scale) / 2; att_x = disp_x; rel_x = disp_x + ar_w + 8 * scale;
+btn_x = dr_x; btn_y = ar_y - 40*scale; btn_w = (wt_x + th_w) - dr_x; btn_h = 24 * scale; 
+
+mode_btn_x = btn_x - 18*scale; 
+mode_btn_y = ar_y + btn_h + 12*scale; 
+mode_btn_w = btn_w + 36 * scale; 
+mode_btn_h = 24*scale;
+ed_btn_y = mode_btn_y + mode_btn_h + 8*scale; 
+ed_btn_w = (btn_w + 30*scale) / 3;
+ed_btn_L_x = mode_btn_x; 
+ed_btn_C_x = mode_btn_x + ed_btn_w + 4*scale; 
+ed_btn_R_x = mode_btn_x + (ed_btn_w * 2) + 8*scale;
+
+sm_w = 140 * scale; sm_h = 24 * scale; sm1_x = pre_base_x + (sat_sw*2 + box_s + 20*scale)/2 - sm_w/2; sm2_x = post_base_x + (sat_sw*2 + box_s + 20*scale)/2 - sm_w/2;
+lbl_y = row3_y + box_s + 40 * scale; sm_y  = lbl_y + 35 * scale; io_y  = sm_y + sm_h + 10 * scale;
+in_x = sm1_x; out_x = sm2_x;
+sy1 = ar_y + kn_h + 14 * scale; sy2 = sy1 + 14 * scale; sy3 = sy2 + 14 * scale;
+
+clip_btn_x = rt_x; clip_btn_y = kn_y + 32*scale; clip_btn_w = (mk_x + th_w) - rt_x; clip_btn_h = 24 * scale;
+
+gfx_setfont(1, "Arial", 25 * scale, 'b'); 
+gfx_measurestr("PRE DRIVE", pre_lbl_w, pre_lbl_h); pre_lbl_x = pre_base_x + (sat_sw*2 + box_s + 20*scale)/2 - pre_lbl_w/2; 
+btn_size = 20 * scale; btn_pre_x = pre_lbl_x + pre_lbl_w + 15 * scale; btn_pre_y = lbl_y + (pre_lbl_h - btn_size)/2;
+gfx_measurestr("POST DRIVE", post_lbl_w, post_lbl_h); post_lbl_x = post_base_x + (sat_sw*2 + box_s + 20*scale)/2 - post_lbl_w/2; 
+btn_post_x = post_lbl_x + post_lbl_w + 15 * scale; btn_post_y = lbl_y + (post_lbl_h - btn_size)/2;
+
+function is_hit(mx, my, tx, ty, tw, th) ( mx >= tx && mx <= tx+tw && my >= ty && my <= ty+th );
+draw_tooltip = 0; tip_x = 0; tip_y = 0; strcpy(#tip_txt, "");
+mc = mouse_cap & 1; mc == 1 && last_mc == 0 ? ( (time_precise() - last_click_time) < 0.3 ? dbl_click = 1 : dbl_click = 0; last_click_time = time_precise(); ) : dbl_click = 0; last_mc = mc;
+
+mouse_cap & 1 == 1 ? (
+  drag_id == 0 ? (
+    drag_id = -1; 
+    
+    // Vertical Faders
+    is_hit(mouse_x, mouse_y, th_x, disp_y, th_w, th_h) ? (dbl_click ? (thresh = 0; slider1=0; sliderchange(0); drag_id=-1) : drag_id=1;);
+    is_hit(mouse_x, mouse_y, rt_x, disp_y, th_w, th_h) ? drag_id = 2;
+    is_hit(mouse_x, mouse_y, mk_x, disp_y, th_w, th_h) ? (dbl_click ? (makeup = 0; slider11=0; sliderchange(0); drag_id=-1) : drag_id=11;);
+    is_hit(mouse_x, mouse_y, dr_x, disp_y, th_w, th_h) && link_btn == 0 ? drag_id = 3;
+    is_hit(mouse_x, mouse_y, wt_x, disp_y, th_w, th_h) ? drag_id = 4;
+    
+    // Horizontal Sliders
+    is_hit(mouse_x, mouse_y, kn_x, kn_y, kn_w, kn_h) ? drag_id = 5;
+    is_hit(mouse_x, mouse_y, att_x, ar_y, ar_w, kn_h) ? drag_id = 6;
+    is_hit(mouse_x, mouse_y, rel_x, ar_y, ar_w, kn_h) ? drag_id = 7;
+    
+    is_hit(mouse_x, mouse_y, filt_x, filt_y, filt_w, filt_h) ? (
+      norm_mouse = (mouse_x - filt_x) / filt_w; norm_hp = log_map(max(schp, 20), 20, 20000); norm_lp = log_map(max(sclp, 20), 20, 20000);
+      abs(norm_mouse - norm_hp) < abs(norm_mouse - norm_lp) ? drag_id = 8 : drag_id = 9;
+    );
+    
+    // PRE SAT MENUS
+    is_hit(mouse_x, mouse_y, pre_base_x + sat_sw, row1_y, box_s + 20*scale, 24*scale) ? ( gfx_x = mouse_x; gfx_y = mouse_y; get_sat_menu(pre_t1_type); choice = gfx_showmenu(#menu); choice > 0 ? ( pre_t1_type = choice - 1; slider43 = pre_t1_type; sliderchange(0); ); drag_id = 43; ) :
+    is_hit(mouse_x, mouse_y, pre_base_x + sat_sw, row2_y, box_s + 20*scale, 24*scale) ? ( gfx_x = mouse_x; gfx_y = mouse_y; get_sat_menu(pre_t2_type); choice = gfx_showmenu(#menu); choice > 0 ? ( pre_t2_type = choice - 1; slider44 = pre_t2_type; sliderchange(0); ); drag_id = 44; ) :
+    is_hit(mouse_x, mouse_y, pre_base_x + sat_sw, row3_y, box_s + 20*scale, 24*scale) ? ( gfx_x = mouse_x; gfx_y = mouse_y; get_sat_menu(pre_t3_type); choice = gfx_showmenu(#menu); choice > 0 ? ( pre_t3_type = choice - 1; slider45 = pre_t3_type; sliderchange(0); ); drag_id = 45; ) :
+    
+    // PRE SAT DRAGS
+    is_hit(mouse_x, mouse_y, pre_base_x, row1_y, sat_sw, sat_sh) ? (dbl_click ? (pre_td=0; slider13=0; drag_id=-1) : drag_id = 13;);
+    is_hit(mouse_x, mouse_y, pre_base_x + sat_sw + box_s + 20*scale, row1_y, sat_sw, sat_sh) ? (dbl_click ? (pre_tw=100; slider14=100; drag_id=-1) : drag_id = 14;);
+    is_hit(mouse_x, mouse_y, pre_base_x + sat_sw + 10*scale, row1_y + box_s + 10*scale, box_s, 16*scale) ? ( norm = (mouse_x - (pre_base_x + sat_sw + 10*scale)) / box_s; dbl_click ? (pt_hp=20; pt_lp=20000; slider29=20; slider30=20000; drag_id=-1) : abs(norm - log_map(pt_hp, 20, 20000)) < abs(norm - log_map(pt_lp, 20, 20000)) ? drag_id = 300 : drag_id = 301; );
+
+    is_hit(mouse_x, mouse_y, pre_base_x, row2_y, sat_sw, sat_sh) ? (dbl_click ? (pre_vd=0; slider15=0; drag_id=-1) : drag_id = 15;);
+    is_hit(mouse_x, mouse_y, pre_base_x + sat_sw + box_s + 20*scale, row2_y, sat_sw, sat_sh) ? (dbl_click ? (pre_vw=100; slider16=100; drag_id=-1) : drag_id = 16;);
+    is_hit(mouse_x, mouse_y, pre_base_x + sat_sw + 10*scale, row2_y + box_s + 10*scale, box_s, 16*scale) ? ( norm = (mouse_x - (pre_base_x + sat_sw + 10*scale)) / box_s; dbl_click ? (pv_hp=20; pv_lp=20000; slider31=20; slider32=20000; drag_id=-1) : abs(norm - log_map(pv_hp, 20, 20000)) < abs(norm - log_map(pv_lp, 20, 20000)) ? drag_id = 302 : drag_id = 303; );
+
+    is_hit(mouse_x, mouse_y, pre_base_x, row3_y, sat_sw, sat_sh) ? (dbl_click ? (pre_fd=0; slider17=0; drag_id=-1) : drag_id = 17;);
+    is_hit(mouse_x, mouse_y, pre_base_x + sat_sw + box_s + 20*scale, row3_y, sat_sw, sat_sh) ? (dbl_click ? (pre_fw=100; slider18=100; drag_id=-1) : drag_id = 18;);
+    is_hit(mouse_x, mouse_y, pre_base_x + sat_sw + 10*scale, row3_y + box_s + 10*scale, box_s, 16*scale) ? ( norm = (mouse_x - (pre_base_x + sat_sw + 10*scale)) / box_s; dbl_click ? (pf_hp=20; pf_lp=20000; slider33=20; slider34=20000; drag_id=-1) : abs(norm - log_map(pf_hp, 20, 20000)) < abs(norm - log_map(pf_lp, 20, 20000)) ? drag_id = 304 : drag_id = 305; );
+
+    // POST SAT MENUS
+    is_hit(mouse_x, mouse_y, post_base_x + sat_sw, row1_y, box_s + 20*scale, 24*scale) ? ( gfx_x = mouse_x; gfx_y = mouse_y; get_sat_menu(post_t1_type); choice = gfx_showmenu(#menu); choice > 0 ? ( post_t1_type = choice - 1; slider46 = post_t1_type; sliderchange(0); ); drag_id = 46; ) :
+    is_hit(mouse_x, mouse_y, post_base_x + sat_sw, row2_y, box_s + 20*scale, 24*scale) ? ( gfx_x = mouse_x; gfx_y = mouse_y; get_sat_menu(post_t2_type); choice = gfx_showmenu(#menu); choice > 0 ? ( post_t2_type = choice - 1; slider47 = post_t2_type; sliderchange(0); ); drag_id = 47; ) :
+    is_hit(mouse_x, mouse_y, post_base_x + sat_sw, row3_y, box_s + 20*scale, 24*scale) ? ( gfx_x = mouse_x; gfx_y = mouse_y; get_sat_menu(post_t3_type); choice = gfx_showmenu(#menu); choice > 0 ? ( post_t3_type = choice - 1; slider48 = post_t3_type; sliderchange(0); ); drag_id = 48; ) :
+
+    // POST SAT DRAGS 
+    is_hit(mouse_x, mouse_y, post_base_x, row1_y, sat_sw, sat_sh) ? (dbl_click ? (post_td=0; slider19=0; drag_id=-1) : drag_id = 19;);
+    is_hit(mouse_x, mouse_y, post_base_x + sat_sw + box_s + 20*scale, row1_y, sat_sw, sat_sh) ? (dbl_click ? (post_tw=100; slider20=100; drag_id=-1) : drag_id = 20;);
+    is_hit(mouse_x, mouse_y, post_base_x + sat_sw + 10*scale, row1_y + box_s + 10*scale, box_s, 16*scale) ? ( norm = (mouse_x - (post_base_x + sat_sw + 10*scale)) / box_s; dbl_click ? (xt_hp=20; xt_lp=20000; slider35=20; slider36=20000; drag_id=-1) : abs(norm - log_map(xt_hp, 20, 20000)) < abs(norm - log_map(xt_lp, 20, 20000)) ? drag_id = 306 : drag_id = 307; );
+
+    is_hit(mouse_x, mouse_y, post_base_x, row2_y, sat_sw, sat_sh) ? (dbl_click ? (post_vd=0; slider21=0; drag_id=-1) : drag_id = 21;);
+    is_hit(mouse_x, mouse_y, post_base_x + sat_sw + box_s + 20*scale, row2_y, sat_sw, sat_sh) ? (dbl_click ? (post_vw=100; slider22=100; drag_id=-1) : drag_id = 22;);
+    is_hit(mouse_x, mouse_y, post_base_x + sat_sw + 10*scale, row2_y + box_s + 10*scale, box_s, 16*scale) ? ( norm = (mouse_x - (post_base_x + sat_sw + 10*scale)) / box_s; dbl_click ? (xv_hp=20; xv_lp=20000; slider37=20; slider38=20000; drag_id=-1) : abs(norm - log_map(xv_hp, 20, 20000)) < abs(norm - log_map(xv_lp, 20, 20000)) ? drag_id = 308 : drag_id = 309; );
+
+    is_hit(mouse_x, mouse_y, post_base_x, row3_y, sat_sw, sat_sh) ? (dbl_click ? (post_fd=0; slider23=0; drag_id=-1) : drag_id = 23;);
+    is_hit(mouse_x, mouse_y, post_base_x + sat_sw + box_s + 20*scale, row3_y, sat_sw, sat_sh) ? (dbl_click ? (post_fw=100; slider24=100; drag_id=-1) : drag_id = 24;);
+    is_hit(mouse_x, mouse_y, post_base_x + sat_sw + 10*scale, row3_y + box_s + 10*scale, box_s, 16*scale) ? ( norm = (mouse_x - (post_base_x + sat_sw + 10*scale)) / box_s; dbl_click ? (xf_hp=20; xf_lp=20000; slider39=20; slider40=20000; drag_id=-1) : abs(norm - log_map(xf_hp, 20, 20000)) < abs(norm - log_map(xf_lp, 20, 20000)) ? drag_id = 310 : drag_id = 311; );
+    
+    // UI Routing & Dual Mono Switches
+    is_hit(mouse_x, mouse_y, mode_btn_x, mode_btn_y, mode_btn_w, mode_btn_h) ? ( stereo_mode = 1 - stereo_mode; slider50 = stereo_mode; sliderchange(0); drag_id = 50; ) :
+    is_hit(mouse_x, mouse_y, ed_btn_L_x, ed_btn_y, ed_btn_w, mode_btn_h) ? ( edit_target != 0 ? ( edit_target = 0; slider51 = edit_target; load_mem_to_sliders(mem_L); ); drag_id = 51; ) :
+    is_hit(mouse_x, mouse_y, ed_btn_C_x, ed_btn_y, ed_btn_w, mode_btn_h) ? ( edit_target != 1 ? ( edit_target == 0 ? memcpy(mem_R, mem_L, 38) : memcpy(mem_L, mem_R, 38); edit_target = 1; slider51 = edit_target; sliderchange(0); ); drag_id = 51; ) :
+    is_hit(mouse_x, mouse_y, ed_btn_R_x, ed_btn_y, ed_btn_w, mode_btn_h) ? ( edit_target != 2 ? ( edit_target = 2; slider51 = edit_target; load_mem_to_sliders(mem_R); ); drag_id = 51; ) :
+    is_hit(mouse_x, mouse_y, clip_btn_x, clip_btn_y, clip_btn_w, clip_btn_h) ? ( clipper_on = 1 - clipper_on; slider49 = clipper_on; sliderchange(0); drag_id = 49; ) :
+    is_hit(mouse_x, mouse_y, btn_x, btn_y, btn_w, btn_h) ? ( link_btn = 1 - link_btn; drag_id = 10; );
+    is_hit(mouse_x, mouse_y, sc_btn_x, sc_btn_y, sc_btn_w, sc_btn_h) ? ( gfx_x = mouse_x; gfx_y = mouse_y; strcpy(#menu, sc_ch == 0 ? "!Main 1/2|" : "Main 1/2|"); strcat(#menu, sc_ch == 1 ? "!Aux 3/4|" : "Aux 3/4|"); strcat(#menu, sc_ch == 2 ? "!Aux 5/6|" : "Aux 5/6|"); strcat(#menu, sc_ch == 3 ? "!Aux 7/8" : "Aux 7/8"); choice = gfx_showmenu(#menu); choice > 0 ? ( sc_ch = choice - 1; slider12 = sc_ch; sliderchange(0); ); drag_id = 12; );
+    is_hit(mouse_x, mouse_y, btn_pre_x, btn_pre_y, btn_size, btn_size) ? ( pre_sat_on = 1 - pre_sat_on; slider41 = pre_sat_on; sliderchange(0); drag_id = 41; ) :
+    is_hit(mouse_x, mouse_y, btn_post_x, btn_post_y, btn_size, btn_size) ? ( post_sat_on = 1 - post_sat_on; slider42 = post_sat_on; sliderchange(0); drag_id = 42; ) :
+    is_hit(mouse_x, mouse_y, sm1_x, sm_y, sm_w, sm_h) ? ( pre_sat_mode = 1 - pre_sat_mode; slider25 = pre_sat_mode; sliderchange(0); drag_id = 25; ) :
+    is_hit(mouse_x, mouse_y, sm2_x, sm_y, sm_w, sm_h) ? ( post_sat_mode = 1 - post_sat_mode; slider26 = post_sat_mode; sliderchange(0); drag_id = 26; ) :
+    is_hit(mouse_x, mouse_y, in_x, io_y, sm_w, sm_h) ? ( dbl_click ? (in_gain=0; slider27=0; drag_id=-1) : drag_id = 27; ) :
+    is_hit(mouse_x, mouse_y, out_x, io_y, sm_w, sm_h) ? ( dbl_click ? (out_gain=0; slider28=0; drag_id=-1) : drag_id = 28; );
+    
+  ) : drag_id > 0 && drag_id != 10 && drag_id != 12 && drag_id != 25 && drag_id != 26 && drag_id != 41 && drag_id != 42 && drag_id != 43 && drag_id != 44 && drag_id != 45 && drag_id != 46 && drag_id != 47 && drag_id != 48 && drag_id != 49 && drag_id != 50 && drag_id != 51 ? (
+    
+    drag_id == 1 ? ( 
+      norm = 1.0 - clamp((mouse_y - disp_y) / th_h, 0, 1);
+      target_amp = norm * norm; // inverse of sqrt
+      thresh = clamp(20 * log10(max(target_amp, 0.00001)), -30, 0); 
+    );
+    drag_id == 2 ? ( norm = clamp((mouse_y - disp_y) / th_h, 0, 1); ratio = (98 ^ (2 * norm) + 96) / 97; ratio = clamp(ratio, 1.0, 100.0); );
+    drag_id == 11 ? makeup = (1.0 - clamp((mouse_y - disp_y) / th_h, 0, 1)) * 30; 
+    drag_id == 3 ? dry_pct = (1.0 - clamp((mouse_y - disp_y) / th_h, 0, 1)) * 100;
+    drag_id == 4 ? ( wet_pct = (1.0 - clamp((mouse_y - disp_y) / th_h, 0, 1)) * 100; link_btn == 1 ? dry_pct = 100 - wet_pct; );
+    
+    drag_id == 5 ? knee = clamp((mouse_x - kn_x) / kn_w, 0, 1) * 24;
+    drag_id == 6 ? att = inv_log_map(clamp((mouse_x - att_x) / ar_w, 0, 1), 0.01, 500); 
+    drag_id == 7 ? rel = inv_log_map(clamp((mouse_x - rel_x) / ar_w, 0, 1), 0.1, 10000); 
+    
+    drag_id == 8 ? ( norm_mouse = clamp((mouse_x - filt_x) / filt_w, 0, 1); norm_mouse <= 0.02 ? schp = 0 : schp = inv_log_map(norm_mouse, 20, 20000); schp = clamp(schp, 0, sclp); );
+    drag_id == 9 ? ( norm_mouse = clamp((mouse_x - filt_x) / filt_w, 0, 1); sclp = inv_log_map(norm_mouse, 20, 20000); sclp = clamp(sclp, max(schp, 20), 20000); );
+    
+    drag_id >= 13 && drag_id <= 24 ? (
+      f_y = (drag_id==13||drag_id==14||drag_id==19||drag_id==20) ? row1_y : (drag_id==15||drag_id==16||drag_id==21||drag_id==22) ? row2_y : row3_y;
+      val = (1.0 - clamp((mouse_y - f_y) / sat_sh, 0, 1)) * 100;
+      drag_id == 13 ? pre_td = val : drag_id == 14 ? pre_tw = val : drag_id == 15 ? pre_vd = val : drag_id == 16 ? pre_vw = val :
+      drag_id == 17 ? pre_fd = val : drag_id == 18 ? pre_fw = val : drag_id == 19 ? post_td = val : drag_id == 20 ? post_tw = val :
+      drag_id == 21 ? post_vd = val : drag_id == 22 ? post_vw = val : drag_id == 23 ? post_fd = val : post_fw = val;
+    );
+
+    drag_id >= 300 && drag_id <= 311 ? (
+      norm = clamp((mouse_x - (drag_id < 306 ? pre_base_x : post_base_x) - sat_sw - 10*scale) / box_s, 0, 1);
+      val = inv_log_map(norm, 20, 20000);
+      draw_tooltip = 1; tip_x = mouse_x; tip_y = mouse_y - 25*scale; sprintf(#tip_txt, "%.0f Hz", val);
+      drag_id == 300 ? pt_hp = clamp(val, 20, pt_lp) : drag_id == 301 ? pt_lp = clamp(val, pt_hp, 20000) :
+      drag_id == 302 ? pv_hp = clamp(val, 20, pv_lp) : drag_id == 303 ? pv_lp = clamp(val, pv_hp, 20000) :
+      drag_id == 304 ? pf_hp = clamp(val, 20, pf_lp) : drag_id == 305 ? pf_lp = clamp(val, pf_hp, 20000) :
+      drag_id == 306 ? xt_hp = clamp(val, 20, xt_lp) : drag_id == 307 ? xt_lp = clamp(val, xt_hp, 20000) :
+      drag_id == 308 ? xv_hp = clamp(val, 20, xv_lp) : drag_id == 309 ? xv_lp = clamp(val, xv_hp, 20000) :
+      drag_id == 310 ? xf_hp = clamp(val, 20, xf_lp) : xf_lp = clamp(val, xf_hp, 20000);
+    );
+
+    drag_id == 27 ? in_gain = -60 + clamp((mouse_x - in_x) / sm_w, 0, 1) * 75;
+    drag_id == 28 ? out_gain = -60 + clamp((mouse_x - out_x) / sm_w, 0, 1) * 75;
+    
+    slider1=thresh; slider2=ratio; slider3=att; slider4=rel; slider5=schp; slider6=sclp; slider7=knee; slider8=dry_pct; 
+    slider9=wet_pct; slider10=link_btn; slider11=makeup; slider12=sc_ch; 
+    slider13=pre_td; slider14=pre_tw; slider15=pre_vd; slider16=pre_vw; slider17=pre_fd; slider18=pre_fw;
+    slider19=post_td; slider20=post_tw; slider21=post_vd; slider22=post_vw; slider23=post_fd; slider24=post_fw;
+    slider25=pre_sat_mode; slider26=post_sat_mode; slider27=in_gain; slider28=out_gain;
+    slider29=pt_hp; slider30=pt_lp; slider31=pv_hp; slider32=pv_lp; slider33=pf_hp; slider34=pf_lp;
+    slider35=xt_hp; slider36=xt_lp; slider37=xv_hp; slider38=xv_lp; slider39=xf_hp; slider40=xf_lp;
+    slider41=pre_sat_on; slider42=post_sat_on;
+    slider43=pre_t1_type; slider44=pre_t2_type; slider45=pre_t3_type; slider46=post_t1_type; slider47=post_t2_type; slider48=post_t3_type;
+    sliderchange(0);
+  );
+) : ( drag_id = 0; );
+
+
+// --- BACKGROUND & BACKPLATES ---
+gfx_r=0.04; gfx_g=0.04; gfx_b=0.04; gfx_a=1;
+gfx_rect(0, 0, gfx_w, gfx_h);
+
+dust_t_ptr = 3500; dust_t_ptr[] += 1.0; dt_time = dust_t_ptr[];
+num_dt = 120; dt_w = 260 * scale; dt_h = 45 * scale; dt_i = 1;
+gfx_r=1.0; gfx_g=0.2; gfx_b=0.2; 
+loop(num_dt,
+  rand_x = dt_i * 213.33; rand_y = dt_i * 187.11; speed_rnd = rand_y - floor(rand_y); 
+  speed_v = (0.5 + (speed_rnd ^ 2.0) * 2.0) * scale;
+  raw_y = dt_time * speed_v + (rand_y * scale); norm_y = raw_y - floor(raw_y / dt_h) * dt_h; dy = dt_h - norm_y; 
+  raw_x = (rand_x * scale) + sin(dt_time * 0.03 + dt_i) * (20 * scale); dx = raw_x - floor(raw_x / dt_w) * dt_w;
+  fade_y = min(norm_y / (15*scale), (dt_h - norm_y) / (15*scale)); fade_x = min(dx / (30*scale), (dt_w - dx) / (30*scale));
+  alpha_rnd = (rand_x * 3.14159) - floor(rand_x * 3.14159); dt_twinkle = 0.4 + sin(dt_time * (0.05 + alpha_rnd * 0.1) + dt_i) * 0.6;
+  gfx_a = clamp(fade_y * fade_x * alpha_rnd * dt_twinkle * 2.0, 0.0, 1.0);
+  size_rnd = (rand_y * 7.77) - floor(rand_y * 7.77); p_size = max(1, ceil((size_rnd ^ 4.0) * 5.0)) * scale;
+  gfx_rect(floor(pre_base_x - 10*scale + dx), floor(y_offs - 5*scale + dy), floor(p_size), floor(p_size)); dt_i += 1;
+);
+
+gfx_setfont(1, "Arial", 28 * scale, 'b'); gfx_r=0.9; gfx_g=0.2; gfx_b=0.2; gfx_a=0.8;
+gfx_x = pre_base_x; gfx_y = y_offs + 10 * scale; gfx_drawstr("FM BurnPressor"); gfx_setfont(1, "Arial", 14 * scale);
+
+gfx_setfont(1, "Arial", 28 * scale, 'b'); gfx_r=0.7; gfx_g=0.5; gfx_b=0.2; gfx_a=0.8;
+gfx_x = pre_base_x + 202*scale; gfx_y = y_offs + 10 * scale; gfx_drawstr("Ultra"); gfx_setfont(1, "Arial", 14 * scale);
+
+function draw_dark_panel(px, py, pw, ph) local(rad) (
+  rad = 16 * scale; gfx_r=0.07; gfx_g=0.07; gfx_b=0.07; gfx_a=1.0;
+  gfx_circle(px+10*scale, py+10*scale, 10*scale, 10*scale, rad, 1); gfx_circle(px+pw-10*scale, py+10*scale, 10*scale, 10*scale, rad, 1);
+  gfx_circle(px+10*scale, py+ph-10*scale, 10*scale, 10*scale, rad, 1); gfx_circle(px+pw-10*scale, py+ph-10*scale, 10*scale, 10*scale, rad, 1);
+  gfx_rect(px+7.5*scale, py+1*scale, pw-15*scale, ph-2*scale); gfx_rect(px+2*scale, py+7.5*scale, pw-4*scale, ph-15*scale);
+  gfx_r=0.2; gfx_g=0.2; gfx_b=0.2; gfx_a=1.0; gfx_roundrect(px, py, pw, ph, 14*scale, 1); gfx_roundrect(px, py, pw, ph, 14*scale, 0);
+);
+
+bg_pad_x = 25 * scale; bg_pad_y = 25 * scale;
+bg_x = th_x - bg_pad_x + 7.5*scale; bg_y = disp_y - bg_pad_y; bg_w = (mk_x + th_w + bg_pad_x) - bg_x - 7.5*scale; bg_h = (sy3 + 1 * scale + bg_pad_y) - bg_y; 
+draw_dark_panel(bg_x, bg_y, bg_w, bg_h);
+bgd_x = dr_x - bg_pad_x + 7.5*scale; bgd_w = (wt_x + th_w + bg_pad_x) - bgd_x - 7.5*scale; bgd_h = (sy3 - 90 * scale + bg_pad_y) - bg_y; 
+draw_dark_panel(bgd_x, bg_y, bgd_w, bgd_h);
+
+function draw_tight_range(x, y, w, h, val1, val2, r_col, g_col, b_col, is_active) local(norm1, norm2, px1, px2, rad) (
+  rad = 5 * scale; gfx_r=0.3; gfx_g=0.3; gfx_b=0.3; gfx_a=1.0; gfx_roundrect(x, y + h/2 - 8*scale, w, 6*scale, 2*scale, 3);
+  gfx_r=0.3; gfx_g=0.3; gfx_b=0.3; gfx_a=0.5; gfx_rect(x, y + h/2 - 8*scale, w, 8*scale, 2*scale, 1);
+  norm1 = log_map(max(val1, 20), 20, 20000); norm2 = log_map(max(val2, 20), 20, 20000);
+  px1 = x + (norm1 * w); px2 = x + (norm2 * w);
+  is_active ? ( gfx_r=r_col; gfx_g=g_col; gfx_b=b_col; gfx_a=0.7; ) : ( gfx_r=0.3; gfx_g=0.3; gfx_b=0.3; gfx_a=0.3; );
+  px2 > px1 ? gfx_rect(px1, y + h/2 - 8*scale, px2 - px1, 8*scale);
+  is_active ? ( gfx_r=0.7; gfx_g=0.7; gfx_b=0.7; gfx_a=1.0; ) : ( gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=0.8; );
+  gfx_circle(px1, y + h/5, rad, 1, 1); gfx_circle(px2, y + h/5, rad, 1, 1);
+  gfx_r=0.2; gfx_g=0.2; gfx_b=0.2; gfx_circle(px1, y + h/5, rad, 0, 1); gfx_circle(px2, y + h/5, rad, 0, 1);
+);
+
+function draw_sat_curve(x, y, size, foo, type, col_r, col_g, col_b, drv_val, wet_val, id, mod_env, is_active) local(px, last_px, py, last_py, norm_x, scr_x, scr_y, t, base_intensity, audio_mod, intensity, max_alpha, xx, n, flame_shape, c_bias, flame_h, num_dust, d_i, t_dust, rand_x, rand_y, speed_v, raw_y, norm_y, dy, raw_x, dx, fade, p_size, dust_ptr, vert_fade, bottom_fade, size_mod, speed_rnd, surge, rand_size_seed, is_big, v, th, ix, iy, isize) (
+  p_size = max(1, ceil(((dy / size_mod) ^ 1.5) * (1.0 + is_big * (0.5 + intensity * 1.0)) * scale));
+  gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1.0; gfx_roundrect(x, y, size, size, 8*scale, 1);
+  t = time_precise() * 8.0 + (id * 2.37); 
+  base_intensity = is_active ? drv_val / 100.0 : 0.0; audio_mod = 0.5 + (min(mod_env, 1.0) * 1.5); 
+  intensity = clamp(base_intensity * audio_mod, 0.0, 1.0); max_alpha = is_active ? max(0.05, clamp((wet_val / 100.0) * audio_mod, 0.0, 1.0)) : 0.0;
+  
+  ix = floor(x); iy = floor(y); isize = floor(size);
+
+  intensity > 0.01 ? (
+    px = 2; 
+    loop(isize - 4,
+      xx = px / scale; n = sin(xx*0.11 - t) + sin(xx*0.29 + t*1.3)*0.6 + sin(xx*0.67 - t*0.9 + sin(xx*0.1))*0.4 + sin(xx*1.13 + t*1.7)*0.2;
+      n = (n + 2.2) / 4.4; flame_shape = n ^ 3.5; c_bias = sin((px / (isize-4)) * $pi);
+      flame_h = floor(min((flame_shape * intensity * (isize * 0.9) * c_bias) + (intensity * 6 * scale), isize - 4)); 
+      
+      gfx_r = col_r; gfx_g = col_g; gfx_b = col_b; gfx_a = max_alpha * 0.5; 
+      gfx_rect(ix + px, iy + isize - 1 - flame_h, 1, flame_h);
+      
+      gfx_r = min(col_r+0.4, 1.0); gfx_g = min(col_g+0.4, 1.0); gfx_b = min(col_b+0.4, 1.0); gfx_a = max_alpha * 0.9;
+      gfx_rect(ix + px, iy + isize - 1 - floor(flame_h * 0.45), 1, floor(flame_h * 0.45)); 
+      
+      px += 1;
+    );
+  );
+
+  dust_ptr = 3100 + id; dust_ptr[] += 0.5 + (intensity ^ 1.5) * 4.0; t_dust = dust_ptr[];
+  num_dust = 400; gfx_r = min(col_r + 0.15, 1.0); gfx_g = min(col_g + 0.15, 1.0); gfx_b = min(col_b + 0.15, 1.0); d_i = 1; size_mod = isize - floor(6*scale); 
+  loop(num_dust,
+    d_i / num_dust <= (intensity + 0.02) ? (
+      rand_x = (d_i + id * 43.0) * 137.508; rand_y = (d_i + id * 29.0) * 83.921; 
+      speed_rnd = rand_y * 11.0; speed_rnd = speed_rnd - floor(speed_rnd); 
+      speed_v = (0.1 + (speed_rnd ^ 3.0) * 6.0) * scale;
+      surge = sin(t_dust * 0.04 + d_i * 13.0) * (6.0 * scale); 
+      raw_y = t_dust * speed_v + (rand_y * scale) + surge; 
+      norm_y = raw_y - floor(raw_y / size_mod) * size_mod; dy = size_mod - norm_y; 
+      raw_x = (rand_x * scale) + sin(t_dust * (0.01 + speed_rnd * 0.04) + d_i) * ((8.0 + speed_rnd * 18.0) * scale); 
+      dx = raw_x - floor(raw_x / size_mod) * size_mod;
+      fade = (dy / size_mod) * min((size_mod - dy) / (12 * scale), 1.0); gfx_a = min(max_alpha * fade * (0.5 + (rand_x - floor(rand_x))*0.5) * 5.0, 1.0); 
+      rand_size_seed = (rand_x * 3.14159) - floor(rand_x * 3.14159); is_big = rand_size_seed < (0.05 + intensity * 0.45) ? 1.0 : 0.0;
+      p_size = max(1, ceil(((dy / size_mod) ^ 1.5) * (1.0 + is_big * (0.5 + intensity * 1.0)) * scale));
+      gfx_rect(floor(ix + 1.5*scale + dx), floor(iy + 1.5*scale + dy), floor(p_size), floor(p_size));
+    ); d_i += 1;
+  );
+
+  gfx_r=0.35; gfx_g=0.35; gfx_b=0.35; gfx_a=1.0; gfx_roundrect(x, y, size, size, 8*scale, 0);
+  gfx_r=0.3; gfx_g=0.3; gfx_b=0.3; gfx_a=0.5; gfx_line(x, y + size/2, x + size, y + size/2); gfx_line(x + size/2, y, x + size/2, y + size); 
+  is_active ? ( gfx_r=col_r; gfx_g=col_g; gfx_b=col_b; gfx_a=1.0; ) : ( gfx_r=0.3; gfx_g=0.3; gfx_b=0.3; gfx_a=0.5; );
+ px = 0;
+   loop(isize,
+     norm_x = (px / (isize-1)) * 2.0 - 1.0; 
+     type == 0 ? ( py = norm_x > 0 ? (1+foo)*norm_x/(1+foo*abs(norm_x)) : (1+foo*0.2)*norm_x/(1+foo*0.2*abs(norm_x)); ) :
+     type == 1 ? ( py = (1+foo)*norm_x/(1+foo*abs(norm_x)); ) : 
+     type == 2 ? ( py = (1+(foo*2.5))*norm_x/(1+(foo*2.5)*abs(norm_x)); ) :
+     type == 3 ? ( v = norm_x * (1 + foo * 2.5); py = abs(v) < 1 ? v - (v*v*v)/3 : sign(v) * (2/3); py *= 1.5; ) :
+     type == 4 ? ( v = norm_x * (1 + foo * 4.0); py = max(min(v, 1.0), -1.0); ) :
+     type == 5 ? ( v = norm_x * (1 + foo * 3.0); py = sin(v * 1.5707963); ) :
+     type == 6 ? ( 
+           // ASYMMETRICAL VISUALIZER
+           th = 0.3; v = norm_x * (1 + foo * 2.2); 
+           py = v > th ? (th + (1 - th) * tanh((v - th) / (1 - th))) : max(v, -1.0); 
+         ) :
+     ( th = 0.7; v = norm_x * (1 + foo * 2.2); py = abs(v) <= th ? v : sign(v) * (th + (1 - th) * tanh((abs(v) - th) / (1 - th))); );
+
+     scr_y = iy + isize - ((py + 1.0) * 0.5 * isize); scr_x = ix + px;
+     px > 0 ? ( gfx_line(last_px, last_py, scr_x, scr_y, 1); gfx_line(last_px, last_py+0.5*scale, scr_x, scr_y+0.5*scale, 1); );
+     last_px = scr_x; last_py = scr_y; px += 1;
+   );
+ );
+
+function draw_v_slider(x, y, w, h, val, display_val, name, is_grey, is_ratio, col_r, col_g, col_b, show_nums) (
+  rad = 6 * scale; gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+  gfx_rect(x+rad, y, w-rad*2, h); gfx_rect(x, y+rad, w, h-rad*2);
+  gfx_circle(x+rad, y+rad, rad, 1, 1); gfx_circle(x+w-rad, y+rad, rad, 1, 1); gfx_circle(x+rad, y+h-rad, rad, 1, 1); gfx_circle(x+w-rad, y+h-rad, rad, 1, 1);
+  is_ratio == 1 ? ( norm = log(val * 97 - 96) / (2 * log(98)); norm = 1.0 - norm; ) : ( norm = (val) / 100; ); norm = clamp(norm, 0, 1); 
+  pad = 2 * scale; fill_max = h - pad*2; fill_h = norm * fill_max; fill_y = y + h - pad - fill_h; fill_w = w - pad*2; fill_x = x + pad; f_rad = rad - pad;
+  is_grey ? (gfx_r=col_r*0.3; gfx_g=col_g*0.3; gfx_b=col_b*0.3; gfx_a=0.8;) : (gfx_r=col_r; gfx_g=col_g; gfx_b=col_b; gfx_a=0.3);
+  fill_h > 0 ? ( fill_h > f_rad ? gfx_rect(fill_x, fill_y, fill_w+1.5*scale, fill_h-f_rad + 5*scale) : gfx_rect(fill_x, fill_y, fill_w, fill_h); );
+  gfx_r=col_r; gfx_g=col_g; gfx_b=col_b; gfx_a=0.9;
+  gfx_roundrect(x, y, w, h, rad, 1); gfx_roundrect(x+0.5*scale, y+0.5*scale, w-1*scale, h-1*scale, rad-0.5*scale, 1); gfx_roundrect(x, y, w, h, rad, 1); gfx_roundrect(x+1*scale, y+1*scale, w-2*scale, h-2*scale, rad-1*scale, 1); 
+  gfx_setfont(1, "Arial", 14 * scale); is_grey ? (gfx_r=0.4; gfx_g=0.4; gfx_b=0.4;) : (gfx_r=col_r; gfx_g=col_g; gfx_b=col_b;);
+  gfx_measurestr(name, tw, th); gfx_x = x + (w-tw)/2; gfx_y = y + h + (8*scale); gfx_drawstr(name);
+  show_nums == 1 ? (
+    sprintf(#valstr, "%.1f", display_val); gfx_measurestr(#valstr, v_tw, v_th); gfx_x = x + (w-v_tw)/2; gfx_y = y - (18*scale); 
+    is_grey ? (gfx_r=0.4; gfx_g=0.4; gfx_b=0.4;) : (gfx_r=0.6; gfx_g=0.6; gfx_b=0.6;); gfx_drawstr(#valstr);
+  );
+);
+
+function draw_h_slider(x, y, w, h, val, min_v, max_v, name, unitstr, r_col, g_col, b_col, tr, tg, tb, is_log) (
+  rad = 6 * scale; 
+  norm = is_log == 1 ? log_map(max(val, min_v), min_v, max_v) : clamp((val - min_v) / (max_v - min_v), 0, 1); 
+  pad = 2 * scale; fill_max = w - pad*2; fill_w = norm * fill_max; fill_y = y + pad; fill_x = x + pad; fill_h = h - pad*2; f_rad = rad - pad;
+  gfx_r=r_col; gfx_g=g_col; gfx_b=b_col; gfx_a=1.0;
+  fill_w > 0 ? ( fill_w > f_rad ? gfx_rect(fill_x-0.5*scale, fill_y-0.5*scale, fill_w+2.5*scale, fill_h+2.5*scale) : gfx_rect(fill_x, fill_y, fill_w, fill_h); );
+  gfx_r=tr; gfx_g=tg; gfx_b=tb; gfx_a=0.8; gfx_roundrect(x, y, w, h, rad, 1); gfx_roundrect(x+0.5*scale, y+0.5*scale, w-1*scale, h-1*scale, rad-0.5*scale, 1);
+  gfx_r=tr; gfx_g=tg; gfx_b=tb; 
+  val < 1.0 ? sprintf(#valstr, "%s: %.2f %s", name, val, unitstr) : val < 100.0 ? sprintf(#valstr, "%s: %.1f %s", name, val, unitstr) : sprintf(#valstr, "%s: %.0f %s", name, val, unitstr);
+  gfx_measurestr(#valstr, tw, th); gfx_x = x + (w-tw)/2; gfx_y = y + (h/2) - (th/2); gfx_drawstr(#valstr);
+);
+
+function draw_dual_h_slider(x, y, w, h, val1, val2, name, r_col, g_col, b_col) local(rad, norm1, norm2, pad, fill_x, fill_w, fill_y, fill_h, hx1, hx2) (
+  rad = 6 * scale;
+  norm1 = log_map(max(val1, 20), 20, 20000); norm2 = log_map(max(val2, 20), 20, 20000); pad = 2 * scale;
+  fill_x = x + pad + (norm1 * (w - pad*2)); fill_w = (norm2 - norm1) * (w - pad*2); fill_y = y + pad; fill_h = h - pad*2;
+  fill_w > 0 ? ( gfx_r=r_col; gfx_g=g_col; gfx_b=b_col; gfx_a=0.5; gfx_rect(fill_x-0.5*scale, fill_y-1*scale, fill_w, fill_h+3*scale); );
+  hx1 = x + pad + (norm1 * (w - pad*2)); gfx_r=0.8; gfx_g=0.8; gfx_b=0.8; gfx_a=1.0; gfx_rect(hx1 - 2*scale, y+2, 4*scale, h);
+  hx2 = x + pad + (norm2 * (w - pad*2)); gfx_rect(hx2 - 2*scale, y+2, 4*scale, h);
+  gfx_r=r_col; gfx_g=g_col; gfx_b=b_col; gfx_a=1.0; gfx_roundrect(x, y, w, h, rad, 1); gfx_roundrect(x+0.5*scale, y+0.5*scale, w-1*scale, h-1*scale, rad-0.5*scale, 1);
+  gfx_r=min(r_col+0.4, 1.0); gfx_g=min(g_col+0.4, 1.0); gfx_b=min(b_col+0.4, 1.0); sprintf(#valstr, "%s: %.0f Hz - %.0f Hz", name, val1, val2); 
+  gfx_measurestr(#valstr, tw, th); gfx_x = x + (w-tw)/2; gfx_y = y + (h/2) - (th/2); gfx_drawstr(#valstr);
+);
+
+function draw_comp_strip(name, label_x, x, y, w, min_v, max_v, s_min, s_max, r, g, b, draw_lbl) local(pad, s_w, s_x, n1, n2, px1, px2, sw) (
+  draw_lbl ? ( gfx_r=r; gfx_g=g; gfx_b=b; gfx_a=1.0; gfx_setfont(1, "Arial", 14 * scale, 'b'); gfx_measurestr(name, tw, th); gfx_x = label_x - tw; gfx_y = y - th/2; gfx_drawstr(name); );
+  pad = 2 * scale; s_w = w - pad*2; s_x = x + pad; n1 = log_map(clamp(min_v, s_min, s_max), s_min, s_max); n2 = log_map(clamp(max_v, s_min, s_max), s_min, s_max);
+  px1 = s_x + (n1 * s_w); px2 = s_x + (n2 * s_w); sw = max(px2 - px1, 4 * scale); 
+  gfx_r=r; gfx_g=g; gfx_b=b; gfx_a=0.5; gfx_roundrect(px1, y - (2*scale), sw, 4*scale, 2*scale, 0); 
+   gfx_r=r; gfx_g=g; gfx_b=b; gfx_a=0.2;
+  gfx_rect(px1+0.5*scale, y - (1*scale), sw, 4*scale, 2*scale, 0); 
+);
+
+function draw_sat_mode_btn(bx, by, bw, bh, mode, is_active) local(rad, tw, th) (
+  rad = 6 * scale; gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+  gfx_rect(bx+rad, by, bw-rad*2, bh); gfx_rect(bx, by+rad, bw, bh-rad*2); gfx_circle(bx+rad, by+rad, rad, 1, 1); 
+  gfx_circle(bx+bw-rad, by+rad, rad, 1, 1); gfx_circle(bx+rad, by+bh-rad, rad, 1, 1); gfx_circle(bx+bw-rad, by+bh-rad, rad, 1, 1);
+  is_active ? ( mode == 1 ? (gfx_r=0.8; gfx_g=0.2; gfx_b=0.5;) : (gfx_r=0.35; gfx_g=0.35; gfx_b=0.35;); gfx_a=1.0; ) : ( gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=0.5; );
+  gfx_roundrect(bx, by, bw, bh, rad, 1);
+  is_active ? ( mode == 1 ? (gfx_r=0.8; gfx_g=0.2; gfx_b=0.5;) : (gfx_r=0.4; gfx_g=0.4; gfx_b=0.4;); ) : ( gfx_r=0.3; gfx_g=0.3; gfx_b=0.3; );
+  gfx_setfont(1, "Arial", 14 * scale); mode == 1 ? gfx_measurestr("MODE: PARALLEL", tw, th) : gfx_measurestr("MODE: SERIES", tw, th);
+  gfx_x = bx + (bw-tw)/2; gfx_y = by + (5*scale); mode == 1 ? gfx_drawstr("MODE: PARALLEL") : gfx_drawstr("MODE: SERIES");
+);
+
+function draw_power_btn(px, py, size, is_on) local(rad) (
+  rad = 4 * scale; gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1.0; gfx_roundrect(px, py, size, size, rad, 1);
+  is_on ? (gfx_r=0.8; gfx_g=0.2; gfx_b=0.2;) : (gfx_r=0.3; gfx_g=0.3; gfx_b=0.3;);
+  gfx_roundrect(px+2*scale, py+2*scale, size-4*scale, size-4*scale, rad-0.5*scale, 1);
+  gfx_rect(px+6*scale, py+6*scale, size-10*scale, size-10*scale, rad-0.5*scale, 1);
+);
+
+function draw_sat_module(sx, sy, drv_val, wet_val, hp_v, lp_v, foo, type, id, mod_env, is_active) local(name, col_r, col_g, col_b, tw, th, lbl_x, tri_x, tri_y) (
+  type == 0 ? ( name = "TUBE"; col_r = 1.0; col_g = 0.5; col_b = 0.1; ) :
+  type == 1 ? ( name = "VCA"; col_r = 0.9; col_g = 0.2; col_b = 0.6; ) : 
+  type == 2 ? ( name = "FET"; col_r = 0.6; col_g = 0.9; col_b = 0.2; ) :
+  type == 3 ? ( name = "S CLIP"; col_r = 1.0; col_g = 0.85; col_b = 0.1; ) :
+  type == 4 ? ( name = "H CLIP"; col_r = 0.95; col_g = 0.15; col_b = 0.15; ) :
+  type == 5 ? ( name = "FOLD B"; col_r = 0.1; col_g = 0.85; col_b = 0.95; ) :
+  type == 6 ? ( name = "  DIOD G"; col_r = 0.85; col_g = 0.55; col_b = 0.25; ) :
+  ( name = "  DIOD S"; col_r = 0.25; col_g = 0.65; col_b = 0.95; );
+
+  is_active ? ( gfx_r=col_r; gfx_g=col_g; gfx_b=col_b; gfx_a=0.5; ) : ( gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=0.5; );
+  gfx_setfont(1, "Arial", 16*scale, 'b'); gfx_measurestr(name, tw, th);
+  lbl_x = sx + sat_sw - 36*scale + box_s/2 - tw/2; gfx_x = lbl_x; gfx_y = sy + 6*scale; gfx_drawstr(name);
+  tri_x = lbl_x + tw + 6*scale; tri_y = sy + 12*scale;
+  gfx_triangle(tri_x, tri_y, tri_x + 8*scale, tri_y, tri_x + 4*scale, tri_y + 4*scale);
+  
+  draw_v_slider(sx, sy, sat_sw, sat_sh, drv_val, drv_val, "DRIVE", is_active ? 0 : 1, 0, col_r, col_g, col_b, 1);
+  draw_sat_curve(sx + sat_sw + 10*scale, sy, box_s, foo, type, col_r, col_g, col_b, drv_val, wet_val, id, mod_env, is_active);
+  draw_v_slider(sx + sat_sw + 10*scale + box_s + 10*scale, sy, sat_sw, sat_sh, wet_val, wet_val, "WET", is_active ? 0 : 1, 0, col_r, col_g, col_b, 1);
+  draw_tight_range(sx + sat_sw + 10*scale, sy + box_s + 10*scale, box_s, 16*scale, hp_v, lp_v, col_r, col_g, col_b, is_active);
+);
+
+
+// --- DRAW SATURATORS ---
+draw_sat_module(pre_base_x, row1_y, pre_td, pre_tw, pt_hp, pt_lp, edit_target==2?pt_foo_R:pt_foo_L, pre_t1_type, 0, env_pt, pre_sat_on);
+draw_sat_module(pre_base_x, row2_y, pre_vd, pre_vw, pv_hp, pv_lp, edit_target==2?pv_foo_R:pv_foo_L, pre_t2_type, 1, env_pv, pre_sat_on);
+draw_sat_module(pre_base_x, row3_y, pre_fd, pre_fw, pf_hp, pf_lp, edit_target==2?pf_foo_R:pf_foo_L, pre_t3_type, 2, env_pf, pre_sat_on);
+
+draw_sat_module(post_base_x, row1_y, post_td, post_tw, xt_hp, xt_lp, edit_target==2?xt_foo_R:xt_foo_L, post_t1_type, 3, env_xt, post_sat_on);
+draw_sat_module(post_base_x, row2_y, post_vd, post_vw, xv_hp, xv_lp, edit_target==2?xv_foo_R:xv_foo_L, post_t2_type, 4, env_xv, post_sat_on);
+draw_sat_module(post_base_x, row3_y, post_fd, post_fw, xf_hp, xf_lp, edit_target==2?xf_foo_R:xf_foo_L, post_t3_type, 5, env_xf, post_sat_on);
+
+
+// --- DRAW COMPRESSOR & MIX FADERS ---
+th_amp = 10 ^ (thresh / 20);
+val_thresh_pct = sqrt(th_amp) * 100;
+val_mk_pct = (makeup / 30) * 100;
+draw_v_slider(th_x, disp_y, th_w, th_h, val_thresh_pct, thresh, "THRSH", 0, 0, 0.2, 0.6, 0.9, 1);
+draw_v_slider(rt_x, disp_y, th_w, th_h, ratio, ratio, "RATIO", 0, 1, 0.2, 0.6, 0.9, 1);
+draw_v_slider(mk_x, disp_y, th_w, th_h, val_mk_pct, makeup, "MAKEUP", 0, 0, 0.2, 0.6, 0.9, 1);
+draw_v_slider(dr_x, disp_y, th_w, th_h, dry_pct, dry_pct, "DRY", link_btn, 0, 0.3, 0.4, 0.7, 1);
+draw_v_slider(wt_x, disp_y, th_w, th_h, wet_pct, wet_pct, "WET", 0, 0, 0.2, 0.6, 0.3, 1); 
+
+
+// --- ROUTING & GLOBALS (Bottom Row) ---
+gfx_setfont(1, "Arial", 25 * scale, 'r'); 
+gfx_x = pre_lbl_x; gfx_y = lbl_y; 
+pre_sat_on ? (gfx_r=0.8; gfx_g=0.2; gfx_b=0.2; gfx_a=1.0;) : (gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1.0;); gfx_drawstr("PRE DRIVE");
+draw_power_btn(btn_pre_x, btn_pre_y, btn_size, pre_sat_on);
+
+gfx_x = post_lbl_x; gfx_y = lbl_y; 
+post_sat_on ? (gfx_r=0.8; gfx_g=0.2; gfx_b=0.2; gfx_a=1.0;) : (gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1.0;); gfx_drawstr("POST DRIVE");
+draw_power_btn(btn_post_x, btn_post_y, btn_size, post_sat_on);
+
+draw_sat_mode_btn(sm1_x, sm_y, sm_w, sm_h, pre_sat_mode, pre_sat_on);
+draw_sat_mode_btn(sm2_x, sm_y, sm_w, sm_h, post_sat_mode, post_sat_on);
+
+draw_h_slider(in_x, io_y, sm_w, sm_h, in_gain, -60, 15, "IN", "dB", 0.25,0.25,0.25, 0.7,0.7,0.7, 0);
+
+rad = 6 * scale; gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+gfx_rect(clip_btn_x+rad, clip_btn_y, clip_btn_w-rad*2, clip_btn_h); gfx_rect(clip_btn_x, clip_btn_y+rad, clip_btn_w, clip_btn_h-rad*2); 
+gfx_circle(clip_btn_x+rad, clip_btn_y+rad, rad, 1, 1); gfx_circle(clip_btn_x+clip_btn_w-rad, clip_btn_y+rad, rad, 1, 1); gfx_circle(clip_btn_x+rad, clip_btn_y+clip_btn_h-rad, rad, 1, 1); gfx_circle(clip_btn_x+clip_btn_w-rad, clip_btn_y+clip_btn_h-rad, rad, 1, 1);
+
+
+clipper_on == 1 ? (gfx_r=0.8; gfx_g=0.1; gfx_b=0.1;) : (gfx_r=0.4; gfx_g=0.4; gfx_b=0.4;); 
+gfx_roundrect(clip_btn_x, clip_btn_y, clip_btn_w, clip_btn_h, rad, 1); 
+gfx_setfont(1, "Arial", 14 * scale, "b"); gfx_measurestr(clipper_on ? "CLIP: ON" : "CLIP: OFF", tw, th); 
+gfx_x = clip_btn_x + (clip_btn_w-tw)/2; gfx_y = clip_btn_y + (5*scale); gfx_drawstr(clipper_on ? "CLIP: ON" : "CLIP: OFF");
+
+// --- NEW CLIPPER VISUALIZER ---
+clipper_on == 1 ? (
+  // 0.5 second refresh timer
+  time_precise() - last_clip_time > 0.5 ? ( 
+    disp_clip_peak = clip_peak_db; 
+    clip_peak_db = 0; 
+    last_clip_time = time_precise(); 
+  );
+  strip_x = clip_btn_x + 2*scale ;
+  strip_y = clip_btn_y + clip_btn_h - 5*scale ; 
+  strip_h = 6*scale;
+    fill_w = min(clip_env_db / 12.0, 1.0) * clip_btn_w;
+  gfx_r=0.9; gfx_g=0.2; gfx_b=0.2; gfx_a=0.9;
+  fill_w > 0 ? gfx_rect(strip_x, strip_y, fill_w, strip_h);
+  
+  // Peak Text
+  disp_clip_peak > 0.05 ? sprintf(#c_str, "-%.1f dB", disp_clip_peak) : strcpy(#c_str, "0.0 dB");
+  gfx_setfont(1, "Arial", 11 * scale, "b"); 
+  gfx_measurestr(#c_str, tw, th);
+  gfx_x = clip_btn_x + (clip_btn_w - tw)/2; 
+  gfx_y = strip_y + strip_h + 3*scale;
+  disp_clip_peak > 0.05 ? (gfx_r=0.9; gfx_g=0.4; gfx_b=0.4;) : (gfx_r=0.4; gfx_g=0.4; gfx_b=0.4;);
+  gfx_drawstr(#c_str);
+);
+
+// ==========================================
+// --- COMPRESSOR VISUALIZER (Main Screen)---
+// ==========================================
+gfx_r=0.12; gfx_g=0.12; gfx_b=0.13; gfx_rect(disp_x, disp_y, disp_size, disp_size);
+
+gfx_r=0.3; gfx_g=0.3; gfx_b=0.3; gfx_a=0.5; i = 0; 
+loop(6, y_p = disp_y + (i/5)*disp_size; x_p = disp_x + (i/5)*disp_size; gfx_line(disp_x, y_p, disp_x+disp_size, y_p); gfx_line(x_p, disp_y, x_p, disp_y+disp_size); i += 1; );
+
+display_points = MAX_POINTS; px_step = wave_draw_w / (display_points - 1); start_idx = write_pos - display_points; while(start_idx < 0) ( start_idx += MAX_POINTS; ); sm_factor = 50 / 100.0; sm_coeff = 1.0 - (sm_factor * 0.95);
+
+gfx_r=0.45; gfx_g=0.45; gfx_b=0.45; gfx_a=0.5; val_smooth = wave_buf[start_idx]; i = 0;
+loop(display_points, idx = (start_idx + i) % MAX_POINTS; cur_val = wave_buf[idx]; cur_val > val_smooth ? val_smooth = cur_val : val_smooth = val_smooth + sm_coeff * (cur_val - val_smooth); y = top_h + wave_h - min(sqrt(val_smooth) * wave_h, wave_h); gfx_line(wave_x + i * px_step, top_h + wave_h, wave_x + i * px_step, y); i += 1; );
+
+gfx_r=0.85; gfx_g=0.85; gfx_b=0.85; gfx_a=1.0; val_smooth = wave_buf[start_idx]; i = 0; is_drawing = 0;
+loop(display_points, idx = (start_idx + i) % MAX_POINTS; cur_val = wave_buf[idx]; cur_val > val_smooth ? val_smooth = cur_val : val_smooth = val_smooth + sm_coeff * (cur_val - val_smooth); y = top_h + wave_h - min(sqrt(val_smooth) * wave_h, wave_h); is_drawing == 0 ? ( last_x = wave_x + i * px_step; last_y = y; is_drawing = 1; ) : ( cur_x = wave_x + i * px_step; cur_y = y; gfx_line(last_x, last_y, cur_x, cur_y, 1); gfx_line(last_x, last_y+(1*scale), cur_x, cur_y+(1*scale), 1); last_x = cur_x; last_y = cur_y; ); i += 1; );
+
+gfx_r=0.3; gfx_g=0.5; gfx_b=0.7; gfx_a=0.5; in_smooth = in_wave_buf[start_idx]; i = 0;
+loop(display_points, idx = (start_idx + i) % MAX_POINTS; cur_val = in_wave_buf[idx]; cur_val > in_smooth ? in_smooth = cur_val : in_smooth = in_smooth + sm_coeff * (cur_val - in_smooth); y = top_h + wave_h - min(sqrt(in_smooth) * wave_h, wave_h); gfx_line(wave_x + i * px_step, top_h + wave_h, wave_x + i * px_step, y); i += 1; );
+
+gfx_r=0.9; gfx_g=0.1; gfx_b=0.1; gfx_a=0.5; gr_smooth = diff_buf[start_idx]; i = 0;
+loop(display_points, idx = (start_idx + i) % MAX_POINTS; cur_gr = diff_buf[idx]; cur_gr < gr_smooth ? gr_smooth = cur_gr : gr_smooth = gr_smooth + sm_coeff * (cur_gr - gr_smooth); gr_smooth < 0.99 ? ( diff_px = (1.0 - sqrt(gr_smooth)) * wave_h; gfx_line(wave_x + i * px_step, top_h, wave_x + i * px_step, top_h + diff_px); ); i += 1; );
+
+gfx_r=1.0; gfx_g=0.2; gfx_b=0.2; gfx_a=1.0; gr_smooth = diff_buf[start_idx]; i = 0; is_drawing = 0;
+loop(display_points, idx = (start_idx + i) % MAX_POINTS; cur_gr = diff_buf[idx]; cur_gr < gr_smooth ? gr_smooth = cur_gr : gr_smooth = gr_smooth + sm_coeff * (cur_gr - gr_smooth); gr_smooth < 0.99 ? ( diff_px = (1.0 - sqrt(gr_smooth)) * wave_h; is_drawing == 0 ? ( last_x = wave_x + i * px_step; last_y = top_h + diff_px; is_drawing = 1; ) : ( cur_x = wave_x + i * px_step; cur_y = top_h + diff_px; gfx_line(last_x, last_y, cur_x, cur_y, 1); gfx_line(last_x, last_y+(1*scale), cur_x, cur_y+(1*scale), 1); last_x = cur_x; last_y = cur_y; ); ) : is_drawing = 0; i += 1; );
+
+gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1; 
+px = 0;
+in_amp = 0; in_db = -144; d = in_db - thresh; k_h = knee / 2; gr = 0;
+d < -k_h ? gr = 0 : d > k_h ? gr = d * (1 - 1/ratio) : gr = ((d + k_h)^2) / (2 * max(knee,0.001)) * (1 - 1/ratio);
+out_db = in_db - gr; out_amp = 10^(out_db/20);
+last_py = disp_y + disp_size - sqrt(clamp(out_amp, 0, 1)) * disp_size;
+
+loop(disp_size,
+  in_amp = px / disp_size;
+  in_db = 20 * log10(max(in_amp, 0.00001));
+  d = in_db - thresh; k_h = knee / 2; gr = 0;
+  d < -k_h ? gr = 0 : d > k_h ? gr = d * (1 - 1/ratio) : gr = ((d + k_h)^2) / (2 * max(knee,0.001)) * (1 - 1/ratio);
+  out_db = in_db - gr; out_amp = 10 ^ (out_db / 20);
+  py = disp_y + disp_size - sqrt(clamp(out_amp, 0, 1)) * disp_size;
+
+    norm_x = px / disp_size;
+    in_amp = norm_x * norm_x; 
+  
+    in_db = 20 * log10(max(in_amp, 0.00001));
+    d = in_db - thresh; k_h = knee / 2; gr = 0;
+    d < -k_h ? gr = 0 : d > k_h ? gr = d * (1 - 1/ratio) : gr = ((d + k_h)^2) / (2 * max(knee,0.001)) * (1 - 1/ratio);
+    out_db = in_db - gr; out_amp = 10 ^ (out_db / 20);
+    
+    // The Y-axis remains sqrt warped
+    py = disp_y + disp_size - sqrt(clamp(out_amp, 0, 1)) * disp_size;
+  
+    px > 0 ? (
+      gfx_line(disp_x + px - 1, last_py, disp_x + px, py);
+      gfx_line(disp_x + px - 1, last_py-(1*scale), disp_x + px, py-(1*scale));
+      gfx_line(disp_x + px - 1, last_py+(1*scale), disp_x + px, py+(1*scale));
+    );
+    last_py = py; px += 1;
+);
+
+gfx_r=0.07; gfx_g=0.07; gfx_b=0.075; gfx_a=1.0; i = 0; rad = 8 * scale; loop(12 * scale, gfx_roundrect(disp_x-i, disp_y-i, disp_size+i*2, disp_size+i*2, rad+i, 1); i += 1; ); gfx_r=0.7; gfx_g=0.7; gfx_b=0.7; gfx_a=1.0; i = 0; loop(2 * scale, gfx_roundrect(disp_x+i, disp_y+i, disp_size-i*2, disp_size-i*2, rad, 1); i += 1; );
+gfx_setfont(1, "Arial", 16 * scale, "b"); show_grid ? ( i = 0; loop(num_grid, db_val = grid_v[i]; amp_val = exp(db_val * db2log); y_line = disp_y + disp_size - (sqrt(amp_val) * disp_size); gfx_r=1.0; gfx_g=1.0; gfx_b=1.0; gfx_a=0.5; sprintf(#db_str, "%d", db_val); gfx_x = disp_x-(10*scale)+ 15*scale; gfx_y = y_line; gfx_drawstr(#db_str); i += 1; ); );
+
+// --- DRAW BOTTOM COMP SLIDERS ---
+draw_h_slider(kn_x, kn_y, kn_w, kn_h, knee, 0, 24, "KNEE", "dB", 0.4, 0.4, 0.4, 1.0, 1.0, 0.7, 0);
+draw_dual_h_slider(filt_x, filt_y, filt_w, filt_h, schp, sclp, "SIDECHAIN FILTER", 0.2, 0.6, 0.5);
+
+draw_h_slider(att_x, ar_y, ar_w, kn_h, att, 0.01, 500, "ATTACK", "ms", 0.0, 0.4, 0.5, 0.4, 1.0, 1.0, 1);
+draw_h_slider(rel_x, ar_y, ar_w, kn_h, rel, 0.1, 10000, "RELEASE", "ms", 0.4, 0.1, 0.5, 1.0, 0.6, 1.0, 1);
+
+lbl_x = att_x - (15 * scale); 
+draw_comp_strip("Opto", lbl_x, att_x, sy1, ar_w, 0.5, 300, 0.01, 500,  0.2, 0.8, 0.2, 1); draw_comp_strip("", lbl_x, rel_x, sy1, ar_w, 50, 10000, 0.1, 10000, 0.2, 0.8, 0.2, 0);
+draw_comp_strip("FET",  lbl_x, att_x, sy2, ar_w, 0.02, 0.8, 0.01, 500,  0.9, 0.6, 0.1, 1); draw_comp_strip("", lbl_x, rel_x, sy2, ar_w, 50, 1100, 0.1, 10000,  0.9, 0.6, 0.1, 0);
+draw_comp_strip("VCA",  lbl_x, att_x, sy3, ar_w, 0.1, 30, 0.01, 500,    0.8, 0.2, 0.5, 1); draw_comp_strip("", lbl_x, rel_x, sy3, ar_w, 100, 1200, 0.1, 10000, 0.8, 0.2, 0.5, 0);
+
+rad = 6 * scale; gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+gfx_rect(btn_x+rad, btn_y, btn_w-rad*2, btn_h); gfx_rect(btn_x, btn_y+rad, btn_w, btn_h-rad*2); gfx_circle(btn_x+rad, btn_y+rad, rad, 1, 1); gfx_circle(btn_x+btn_w-rad, btn_y+rad, rad, 1, 1); gfx_circle(btn_x+rad, btn_y+btn_h-rad, rad, 1, 1); gfx_circle(btn_x+btn_w-rad, btn_y+btn_h-rad, rad, 1, 1);
+link_btn == 1 ? (gfx_r=0.2; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=0.4; gfx_g=0.4; gfx_b=0.4;); gfx_roundrect(btn_x, btn_y, btn_w, btn_h, rad, 1); gfx_setfont(1, "Arial", 14 * scale, "b"); gfx_measurestr("LINK: ON", tw, th); gfx_x = btn_x + (btn_w-tw)/2; gfx_y = btn_y + (5*scale); link_btn == 1 ? gfx_drawstr("LINK: ON") : gfx_drawstr("LINK: OFF");
+
+gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+gfx_rect(sc_btn_x+rad, sc_btn_y, sc_btn_w-rad*2, sc_btn_h); gfx_rect(sc_btn_x, sc_btn_y+rad, sc_btn_w, sc_btn_h-rad*2); gfx_circle(sc_btn_x+rad, sc_btn_y+rad, rad, 1, 1); gfx_circle(sc_btn_x+sc_btn_w-rad, sc_btn_y+rad, rad, 1, 1); gfx_circle(sc_btn_x+rad, sc_btn_y+sc_btn_h-rad, rad, 1, 1); gfx_circle(sc_btn_x+sc_btn_w-rad, sc_btn_y+sc_btn_h-rad, rad, 1, 1);
+gfx_r=0.35; gfx_g=0.35; gfx_b=0.35; gfx_a=1.0; gfx_roundrect(sc_btn_x, sc_btn_y, sc_btn_w, sc_btn_h, rad, 1); sc_ch > 0 ? (gfx_r=0.2; gfx_g=0.6; gfx_b=0.9;) : (gfx_r=0.4; gfx_g=0.4; gfx_b=0.4;); sc_ch == 0 ? strcpy(#sc_str, "SC: Main 1/2") : sc_ch == 1 ? strcpy(#sc_str, "SC: Aux 3/4") : sc_ch == 2 ? strcpy(#sc_str, "SC: Aux 5/6") : strcpy(#sc_str, "SC: Aux 7/8");
+gfx_measurestr(#sc_str, tw, th); gfx_x = sc_btn_x + (sc_btn_w-tw)/2; gfx_y = sc_btn_y + (5*scale); gfx_drawstr(#sc_str);
+gfx_x = sc_btn_x + sc_btn_w - (15*scale); gfx_y = sc_btn_y + (10*scale); gfx_triangle(gfx_x, gfx_y, gfx_x + (8*scale), gfx_y, gfx_x + (4*scale), gfx_y + (4*scale));
+
+// --- L/R & M/S BUTTONS ---
+gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+gfx_rect(mode_btn_x+rad, mode_btn_y, mode_btn_w-rad*2, mode_btn_h); gfx_rect(mode_btn_x, mode_btn_y+rad, mode_btn_w, mode_btn_h-rad*2); 
+gfx_circle(mode_btn_x+rad, mode_btn_y+rad, rad, 1, 1); gfx_circle(mode_btn_x+mode_btn_w-rad, mode_btn_y+rad, rad, 1, 1); gfx_circle(mode_btn_x+rad, mode_btn_y+mode_btn_h-rad, rad, 1, 1); gfx_circle(mode_btn_x+mode_btn_w-rad, mode_btn_y+mode_btn_h-rad, rad, 1, 1);
+stereo_mode == 1 ? (gfx_r=0.2; gfx_g=0.6; gfx_b=0.9;) : (gfx_r=0.35; gfx_g=0.35; gfx_b=0.35;); gfx_roundrect(mode_btn_x, mode_btn_y, mode_btn_w, mode_btn_h, rad, 1); 
+gfx_setfont(1, "Arial", 14 * scale, "b"); stereo_mode == 1 ? strcpy(#md_str, "STEREO: M/S") : strcpy(#md_str, "STEREO: L/R"); gfx_measurestr(#md_str, tw, th); gfx_x = mode_btn_x + (mode_btn_w-tw)/2; gfx_y = mode_btn_y + (5*scale); gfx_drawstr(#md_str);
+
+// Left Edit Target
+gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+gfx_rect(ed_btn_L_x+rad, ed_btn_y, ed_btn_w-rad*2, mode_btn_h); gfx_rect(ed_btn_L_x, ed_btn_y+rad, ed_btn_w, mode_btn_h-rad*2); gfx_circle(ed_btn_L_x+rad, ed_btn_y+rad, rad, 1, 1); gfx_circle(ed_btn_L_x+ed_btn_w-rad, ed_btn_y+rad, rad, 1, 1); gfx_circle(ed_btn_L_x+rad, ed_btn_y+mode_btn_h-rad, rad, 1, 1); gfx_circle(ed_btn_L_x+ed_btn_w-rad, ed_btn_y+mode_btn_h-rad, rad, 1, 1);
+edit_target == 0 ? (gfx_r=0.8; gfx_g=0.2; gfx_b=0.2;) : (gfx_r=0.25; gfx_g=0.25; gfx_b=0.25;); gfx_roundrect(ed_btn_L_x, ed_btn_y, ed_btn_w, mode_btn_h, rad, 1); 
+stereo_mode == 1 ? strcpy(#edl_str, "MID") : strcpy(#edl_str, "LEFT"); gfx_measurestr(#edl_str, tw, th); gfx_x = ed_btn_L_x + (ed_btn_w-tw)/2; gfx_y = ed_btn_y + (5*scale); gfx_drawstr(#edl_str);
+
+// Link Edit Target
+gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+gfx_rect(ed_btn_C_x+rad, ed_btn_y, ed_btn_w-rad*2, mode_btn_h); gfx_rect(ed_btn_C_x, ed_btn_y+rad, ed_btn_w, mode_btn_h-rad*2); gfx_circle(ed_btn_C_x+rad, ed_btn_y+rad, rad, 1, 1); gfx_circle(ed_btn_C_x+ed_btn_w-rad, ed_btn_y+rad, rad, 1, 1); gfx_circle(ed_btn_C_x+rad, ed_btn_y+mode_btn_h-rad, rad, 1, 1); gfx_circle(ed_btn_C_x+ed_btn_w-rad, ed_btn_y+mode_btn_h-rad, rad, 1, 1);
+edit_target == 1 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=0.25; gfx_g=0.25; gfx_b=0.25;); gfx_roundrect(ed_btn_C_x, ed_btn_y, ed_btn_w, mode_btn_h, rad, 1); 
+strcpy(#edc_str, "LINK"); gfx_measurestr(#edc_str, tw, th); gfx_x = ed_btn_C_x + (ed_btn_w-tw)/2; gfx_y = ed_btn_y + (5*scale); gfx_drawstr(#edc_str);
+
+// Right Edit Target
+gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+gfx_rect(ed_btn_R_x+rad, ed_btn_y, ed_btn_w-rad*2, mode_btn_h); gfx_rect(ed_btn_R_x, ed_btn_y+rad, ed_btn_w, mode_btn_h-rad*2); gfx_circle(ed_btn_R_x+rad, ed_btn_y+rad, rad, 1, 1); gfx_circle(ed_btn_R_x+ed_btn_w-rad, ed_btn_y+rad, rad, 1, 1); gfx_circle(ed_btn_R_x+rad, ed_btn_y+mode_btn_h-rad, rad, 1, 1); gfx_circle(ed_btn_R_x+ed_btn_w-rad, ed_btn_y+mode_btn_h-rad, rad, 1, 1);
+edit_target == 2 ? (gfx_r=0.2; gfx_g=0.4; gfx_b=0.8;) : (gfx_r=0.25; gfx_g=0.25; gfx_b=0.25;); gfx_roundrect(ed_btn_R_x, ed_btn_y, ed_btn_w, mode_btn_h, rad, 1); 
+stereo_mode == 1 ? strcpy(#edr_str, "SIDE") : strcpy(#edr_str, "RIGHT"); gfx_measurestr(#edr_str, tw, th); gfx_x = ed_btn_R_x + (ed_btn_w-tw)/2; gfx_y = ed_btn_y + (5*scale); gfx_drawstr(#edr_str);
+
+draw_tooltip ? (
+  gfx_setfont(1, "Arial", 16*scale, 'b'); gfx_measurestr(#tip_txt, tw, th);
+  gfx_r=0.1; gfx_g=0.1; gfx_b=0.15; gfx_a=0.9;
+  gfx_roundrect(tip_x - tw/2 - 6*scale, tip_y - th/2 - 4*scale, tw + 12*scale, th + 8*scale, 4*scale, 1);
+  gfx_r=1; gfx_g=1; gfx_b=1; gfx_a=1.0;
+  gfx_x = tip_x - tw/2; gfx_y = tip_y - th/2; gfx_drawstr(#tip_txt);
+);

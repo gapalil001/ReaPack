@@ -1,0 +1,556 @@
+desc: BurnDrive (Flat Madness)
+// @version 1.0
+// @author Dmytro Hapochka
+// @link https://github.com/gapalil001/ReaPack
+// @changelog Initial ReaPack release; processing code and parameters preserved.
+// @provides
+//   Flat Madness BurnDrive.jsfx > ../Flat Madness BurnDrive.jsfx
+
+author: Dmytro Hapochka
+// Tags: saturation, multiband, harmonic exciter
+
+options: no_meter
+
+in_pin:Left
+in_pin:Right
+out_pin:Left
+out_pin:Right
+
+slider1:s1_drv=0<0,100,0.1>-Stage 1 Drive (%)
+slider2:s1_wet=100<0,100,0.1>-Stage 1 Amount (%)
+slider3:s1_hp=20<20,20000,1>-Stage 1 Target HP (Hz)
+slider4:s1_lp=20000<20,20000,1>-Stage 1 Target LP (Hz)
+
+slider5:s2_drv=0<0,100,0.1>-Stage 2 Drive (%)
+slider6:s2_wet=100<0,100,0.1>-Stage 2 Amount (%)
+slider7:s2_hp=20<20,20000,1>-Stage 2 Target HP (Hz)
+slider8:s2_lp=20000<20,20000,1>-Stage 2 Target LP (Hz)
+
+slider9:s3_drv=0<0,100,0.1>-Stage 3 Drive (%)
+slider10:s3_wet=100<0,100,0.1>-Stage 3 Amount (%)
+slider11:s3_hp=20<20,20000,1>-Stage 3 Target HP (Hz)
+slider12:s3_lp=20000<20,20000,1>-Stage 3 Target LP (Hz)
+
+slider13:sat_mode=1<0,1,1{Series,Parallel}>-Routing Mode
+slider14:in_gain=0<-60,15,0.1>-Input (dB)
+slider15:out_gain=0<-60,15,0.1>-Output (dB)
+
+// TYPE SELECTORS
+slider16:s1_type=0<0,7,1{Tube,VCA,FET,Soft Clip,Hard Clip,Foldback,Diode Ge,Diode Si}>-Stage 1 Type
+slider17:s2_type=1<0,7,1{Tube,VCA,FET,Soft Clip,Hard Clip,Foldback,Diode Ge,Diode Si}>-Stage 2 Type
+slider18:s3_type=2<0,7,1{Tube,VCA,FET,Soft Clip,Hard Clip,Foldback,Diode Ge,Diode Si}>-Stage 3 Type
+
+
+@init
+gfx_ext_retina = 1; 
+
+// Visual envelope trackers for individual dust/flame engines
+env_s1 = 0; env_s2 = 0; env_s3 = 0;
+
+// Double click tracking logic initialization
+last_click_time = 0;
+last_mc = 0;
+
+function tanh(x) local(e_minus_2x) (
+  e_minus_2x = exp(-2 * x);
+  (1 - e_minus_2x) / (1 + e_minus_2x);
+);
+function sign(val) ( val > 0 ? 1 : val < 0 ? -1 : 0; );
+
+// Unified Biquad filters
+function bq_hp(freq, q) instance(n0,n1,n2,d1,d2) local(w, alpha, cosw, a0) (
+  w = 2 * $pi * max(freq, 10) / srate; alpha = sin(w) / (2 * q); cosw = cos(w); a0 = 1 + alpha;
+  n0 = (1 + cosw) / 2 / a0; n1 = -(1 + cosw) / a0; n2 = (1 + cosw) / 2 / a0;
+  d1 = -2 * cosw / a0; d2 = (1 - alpha) / a0;
+);
+function bq_lp(freq, q) instance(n0,n1,n2,d1,d2) local(w, alpha, cosw, a0) (
+  w = 2 * $pi * min(freq, 20000) / srate; alpha = sin(w) / (2 * q); cosw = cos(w); a0 = 1 + alpha;
+  n0 = (1 - cosw) / 2 / a0; n1 = (1 - cosw) / a0; n2 = (1 - cosw) / 2 / a0;
+  d1 = -2 * cosw / a0; d2 = (1 - alpha) / a0;
+);
+function bq_run(in) instance(n0,n1,n2,d1,d2,z1,z2,out1,out2) local(out) (
+  out = n0*in + n1*z1 + n2*z2 - d1*out1 - d2*out2;
+  z2 = z1; z1 = in; out2 = out1; out1 = out; out;
+);
+
+// Linkwitz-Riley 4 (24dB/oct) Wrappers
+function lr4_hp(freq) instance(f1, f2) (
+  f1.bq_hp(freq, 0.7071);
+  f2.bq_hp(freq, 0.7071);
+);
+function lr4_lp(freq) instance(f1, f2) (
+  f1.bq_lp(freq, 0.7071);
+  f2.bq_lp(freq, 0.7071);
+);
+function lr4_run(in) instance(f1, f2) (
+  f2.bq_run(f1.bq_run(in));
+);
+
+function clamp(val, min_val, max_val) ( min(max(val, min_val), max_val); );
+
+function process_sat(in, type, foo) local(sat, v, th) (
+  type == 0 ? ( sat = in > 0 ? (1+foo)*in/(1+foo*abs(in)) : (1+foo*0.2)*in/(1+foo*0.2*abs(in)); ) : 
+  type == 1 ? ( sat = (1+foo)*in/(1+foo*abs(in)); ) : 
+  type == 2 ? ( sat = (1+(foo*2.5))*in/(1+(foo*2.5)*abs(in)); ) :
+  type == 3 ? ( v = in * (1 + foo * 2.5); sat = abs(v) < 1 ? v - (v*v*v)/3 : sign(v) * (2/3); sat *= 1.5; ) :
+  type == 4 ? ( v = in * (1 + foo * 4.0); sat = max(min(v, 1.0), -1.0); ) :
+  type == 5 ? ( v = in * (1 + foo * 3.0); sat = sin(v * 1.5707963); ) :
+  type == 6 ? ( 
+      // ASYMMETRICAL Diode Germanium (0.3v knee)
+      th = 0.3; v = in * (1 + foo * 2.2);
+      sat = v > th ? (th + (1 - th) * tanh((v - th) / (1 - th))) : max(v, -1.0);
+    ) : ( 
+    // SYMMETRICAL Diode Silicon (0.7v knee)
+    th = 0.7; v = in * (1 + foo * 2.2);
+    sat = abs(v) <= th ? v : sign(v) * (th + (1 - th) * tanh((abs(v) - th) / (1 - th)));
+  );
+  sat;
+);
+
+function get_comp(drv_v, type) ( type == 2 ? 1.0 - (drv_v * 0.5) : 1.0 - (drv_v * 0.4); );
+
+
+@block
+s1_drv_v = min(s1_drv/100, 0.999); s1_foo = 2*s1_drv_v/(1-s1_drv_v); s1_wet_v = s1_wet/100;
+s2_drv_v = min(s2_drv/100, 0.999); s2_foo = 2*s2_drv_v/(1-s2_drv_v); s2_wet_v = s2_wet/100;
+s3_drv_v = min(s3_drv/100, 0.999); s3_foo = 2*s3_drv_v/(1-s3_drv_v); s3_wet_v = s3_wet/100;
+
+// Auto-Gain Compensation
+s1_comp = get_comp(s1_drv_v, s1_type);
+s2_comp = get_comp(s2_drv_v, s2_type);
+s3_comp = get_comp(s3_drv_v, s3_type);
+
+// Input / Output linear scaling (-60dB acts as -inf)
+in_gain <= -59.9 ? in_gain_lin = 0.0 : in_gain_lin = 10 ^ (in_gain / 20);
+out_gain <= -59.9 ? out_gain_lin = 0.0 : out_gain_lin = 10 ^ (out_gain / 20);
+
+// LR4 (24dB/oct) filtering for clean crossovers
+s1_hp_L.lr4_hp(s1_hp); s1_lp_L.lr4_lp(s1_lp);
+s1_hp_R.lr4_hp(s1_hp); s1_lp_R.lr4_lp(s1_lp);
+
+s2_hp_L.lr4_hp(s2_hp); s2_lp_L.lr4_lp(s2_lp);
+s2_hp_R.lr4_hp(s2_hp); s2_lp_R.lr4_lp(s2_lp);
+
+s3_hp_L.lr4_hp(s3_hp); s3_lp_L.lr4_lp(s3_lp);
+s3_hp_R.lr4_hp(s3_hp); s3_lp_R.lr4_lp(s3_lp);
+
+
+@sample
+// 1. Capture pristine raw input with Input Gain
+raw_L = spl0 * in_gain_lin; 
+raw_R = spl1 * in_gain_lin;
+
+sat_mode == 1 ? (
+  // ==========================================
+  // PARALLEL PROCESSING MODE
+  // ==========================================
+  // 2. Extract the specific bands for each topology purely in parallel
+  s1_bp_L = s1_lp_L.lr4_run(s1_hp_L.lr4_run(raw_L));
+  s1_bp_R = s1_lp_R.lr4_run(s1_hp_R.lr4_run(raw_R));
+
+  s2_bp_L = s2_lp_L.lr4_run(s2_hp_L.lr4_run(raw_L));
+  s2_bp_R = s2_lp_R.lr4_run(s2_hp_R.lr4_run(raw_R));
+
+  s3_bp_L = s3_lp_L.lr4_run(s3_hp_L.lr4_run(raw_L));
+  s3_bp_R = s3_lp_R.lr4_run(s3_hp_R.lr4_run(raw_R));
+
+  // 3. Create the "Gaps" in the dry signal
+  gap_dry_L = raw_L - (s1_bp_L * s1_wet_v) - (s2_bp_L * s2_wet_v) - (s3_bp_L * s3_wet_v);
+  gap_dry_R = raw_R - (s1_bp_R * s1_wet_v) - (s2_bp_R * s2_wet_v) - (s3_bp_R * s3_wet_v);
+
+  // 4. Saturate the extracted bands AND apply Auto-Gain
+  s1_sat_L = process_sat(s1_bp_L, s1_type, s1_foo) * s1_comp; 
+  s1_sat_R = process_sat(s1_bp_R, s1_type, s1_foo) * s1_comp;
+
+  s2_sat_L = process_sat(s2_bp_L, s2_type, s2_foo) * s2_comp; 
+  s2_sat_R = process_sat(s2_bp_R, s2_type, s2_foo) * s2_comp;
+
+  s3_sat_L = process_sat(s3_bp_L, s3_type, s3_foo) * s3_comp; 
+  s3_sat_R = process_sat(s3_bp_R, s3_type, s3_foo) * s3_comp;
+
+  // 5. Fill the gaps with the saturated audio
+  final_L = gap_dry_L + (s1_sat_L * s1_wet_v) + (s2_sat_L * s2_wet_v) + (s3_sat_L * s3_wet_v);
+  final_R = gap_dry_R + (s1_sat_R * s1_wet_v) + (s2_sat_R * s2_wet_v) + (s3_sat_R * s3_wet_v);
+
+) : (
+  // ==========================================
+  // SERIES PROCESSING MODE
+  // ==========================================
+  // STAGE 1
+  s1_bp_L = s1_lp_L.lr4_run(s1_hp_L.lr4_run(raw_L));
+  s1_bp_R = s1_lp_R.lr4_run(s1_hp_R.lr4_run(raw_R));
+  gap_dry_L = raw_L - (s1_bp_L * s1_wet_v);
+  gap_dry_R = raw_R - (s1_bp_R * s1_wet_v);
+  s1_sat_L = process_sat(s1_bp_L, s1_type, s1_foo) * s1_comp; 
+  s1_sat_R = process_sat(s1_bp_R, s1_type, s1_foo) * s1_comp;
+  raw_L = gap_dry_L + (s1_sat_L * s1_wet_v);
+  raw_R = gap_dry_R + (s1_sat_R * s1_wet_v);
+  
+  // STAGE 2 (Processing updated signal)
+  s2_bp_L = s2_lp_L.lr4_run(s2_hp_L.lr4_run(raw_L));
+  s2_bp_R = s2_lp_R.lr4_run(s2_hp_R.lr4_run(raw_R));
+  gap_dry_L = raw_L - (s2_bp_L * s2_wet_v);
+  gap_dry_R = raw_R - (s2_bp_R * s2_wet_v);
+  s2_sat_L = process_sat(s2_bp_L, s2_type, s2_foo) * s2_comp; 
+  s2_sat_R = process_sat(s2_bp_R, s2_type, s2_foo) * s2_comp;
+  raw_L = gap_dry_L + (s2_sat_L * s2_wet_v);
+  raw_R = gap_dry_R + (s2_sat_R * s2_wet_v);
+  
+  // STAGE 3 (Processing updated signal)
+  s3_bp_L = s3_lp_L.lr4_run(s3_hp_L.lr4_run(raw_L));
+  s3_bp_R = s3_lp_R.lr4_run(s3_hp_R.lr4_run(raw_R));
+  gap_dry_L = raw_L - (s3_bp_L * s3_wet_v);
+  gap_dry_R = raw_R - (s3_bp_R * s3_wet_v);
+  s3_sat_L = process_sat(s3_bp_L, s3_type, s3_foo) * s3_comp; 
+  s3_sat_R = process_sat(s3_bp_R, s3_type, s3_foo) * s3_comp;
+  
+  final_L = gap_dry_L + (s3_sat_L * s3_wet_v);
+  final_R = gap_dry_R + (s3_sat_R * s3_wet_v);
+);
+
+// Apply Output Gain and Clamp
+spl0 = clamp(final_L * out_gain_lin, -1.0, 1.0); 
+spl1 = clamp(final_R * out_gain_lin, -1.0, 1.0);
+
+// Visual Trackers
+peak_s1 = max(abs(s1_sat_L), abs(s1_sat_R)); peak_s1 > env_s1 ? env_s1 += (peak_s1 - env_s1) * 0.1 : env_s1 *= 0.99;
+peak_s2 = max(abs(s2_sat_L), abs(s2_sat_R)); peak_s2 > env_s2 ? env_s2 += (peak_s2 - env_s2) * 0.1 : env_s2 *= 0.99;
+peak_s3 = max(abs(s3_sat_L), abs(s3_sat_R)); peak_s3 > env_s3 ? env_s3 += (peak_s3 - env_s3) * 0.1 : env_s3 *= 0.99;
+
+
+@gfx 900 300
+base_w = 900; base_h = 300; 
+scale = max(min(gfx_w / base_w, gfx_h / base_h), 0.1); 
+x_offs = (gfx_w - (base_w * scale)) / 2;
+y_offs = (gfx_h - (base_h * scale)) / 2;
+
+function get_sat_menu(type) (
+  strcpy(#menu, type == 0 ? "!Tube|" : "Tube|");
+  strcat(#menu, type == 1 ? "!VCA|" : "VCA|");
+  strcat(#menu, type == 2 ? "!FET|" : "FET|");
+  strcat(#menu, type == 3 ? "!Soft Clip|" : "Soft Clip|");
+  strcat(#menu, type == 4 ? "!Hard Clip|" : "Hard Clip|");
+  strcat(#menu, type == 5 ? "!Foldback|" : "Foldback|");
+  strcat(#menu, type == 6 ? "!Diode Germanium|" : "Diode Germanium|");
+  strcat(#menu, type == 7 ? "!Diode Silicon" : "Diode Silicon");
+);
+function log_map(val, min_v, max_v) ( val <= min_v ? 0.0 : (log(val/min_v) / log(max_v/min_v)); );
+function inv_log_map(norm, min_v, max_v) ( norm <= 0.0 ? min_v : exp(norm * log(max_v/min_v)) * min_v; );
+
+sat_sw = 30 * scale; sat_sh = 130 * scale; box_s = 150 * scale;
+mod_w = sat_sw*2 + box_s + 20*scale;
+spacing = 30 * scale;
+
+mod1_x = x_offs + (base_w*scale)/2 - mod_w*1.5 - spacing;
+mod2_x = x_offs + (base_w*scale)/2 - mod_w/2;
+mod3_x = x_offs + (base_w*scale)/2 + mod_w/2 + spacing;
+
+// Clean Master Y Coordinates
+mod_sy = y_offs + 90 * scale; 
+range_sy = mod_sy + sat_sh + 35 * scale;
+
+// In/Out and Mode Button coords
+in_x = x_offs + 25 * scale;
+out_x = x_offs + base_w*scale - sat_sw - 25 * scale;
+btn_w = 140 * scale; btn_h = 24 * scale;
+btn_x = x_offs + base_w*scale - btn_w - 25 * scale;
+btn_y = y_offs + 15 * scale;
+
+function is_hit(mx, my, tx, ty, tw, th) ( mx >= tx && mx <= tx+tw && my >= ty && my <= ty+th );
+
+// --- DOUBLE CLICK TRACKER ---
+mc = mouse_cap & 1;
+mc == 1 && last_mc == 0 ? (
+  (time_precise() - last_click_time) < 0.3 ? dbl_click = 1 : dbl_click = 0;
+  last_click_time = time_precise();
+) : dbl_click = 0;
+last_mc = mc;
+
+mouse_cap & 1 == 1 ? (
+  drag_id == 0 ? (
+    drag_id = -1; 
+    
+    // STAGE 1 HITS
+    is_hit(mouse_x, mouse_y, mod1_x + sat_sw + 10*scale, mod_sy, box_s, 24*scale) ? ( gfx_x = mouse_x; gfx_y = mouse_y; get_sat_menu(s1_type); choice = gfx_showmenu(#menu); choice > 0 ? ( s1_type = choice - 1; slider16 = s1_type; sliderchange(0); ); drag_id = 16; ) :
+    is_hit(mouse_x, mouse_y, mod1_x, mod_sy, sat_sw, sat_sh) ? drag_id = 1 :
+    is_hit(mouse_x, mouse_y, mod1_x + sat_sw + box_s + 20*scale, mod_sy, sat_sw, sat_sh) ? drag_id = 2 :
+    is_hit(mouse_x, mouse_y, mod1_x, range_sy, mod_w, 24*scale) ? (
+      norm = (mouse_x - mod1_x) / mod_w;
+      nhp = log_map(s1_hp, 20, 20000); nlp = log_map(s1_lp, 20, 20000);
+      abs(norm - nhp) < abs(norm - nlp) ? drag_id = 3 : drag_id = 4;
+    ) :
+    
+    // STAGE 2 HITS
+    is_hit(mouse_x, mouse_y, mod2_x + sat_sw + 10*scale, mod_sy, box_s, 24*scale) ? ( gfx_x = mouse_x; gfx_y = mouse_y; get_sat_menu(s2_type); choice = gfx_showmenu(#menu); choice > 0 ? ( s2_type = choice - 1; slider17 = s2_type; sliderchange(0); ); drag_id = 17; ) :
+    is_hit(mouse_x, mouse_y, mod2_x, mod_sy, sat_sw, sat_sh) ? drag_id = 5 :
+    is_hit(mouse_x, mouse_y, mod2_x + sat_sw + box_s + 20*scale, mod_sy, sat_sw, sat_sh) ? drag_id = 6 :
+    is_hit(mouse_x, mouse_y, mod2_x, range_sy, mod_w, 24*scale) ? (
+      norm = (mouse_x - mod2_x) / mod_w;
+      nhp = log_map(s2_hp, 20, 20000); nlp = log_map(s2_lp, 20, 20000);
+      abs(norm - nhp) < abs(norm - nlp) ? drag_id = 7 : drag_id = 8;
+    ) :
+    
+    // STAGE 3 HITS
+    is_hit(mouse_x, mouse_y, mod3_x + sat_sw + 10*scale, mod_sy, box_s, 24*scale) ? ( gfx_x = mouse_x; gfx_y = mouse_y; get_sat_menu(s3_type); choice = gfx_showmenu(#menu); choice > 0 ? ( s3_type = choice - 1; slider18 = s3_type; sliderchange(0); ); drag_id = 18; ) :
+    is_hit(mouse_x, mouse_y, mod3_x, mod_sy, sat_sw, sat_sh) ? drag_id = 9 :
+    is_hit(mouse_x, mouse_y, mod3_x + sat_sw + box_s + 20*scale, mod_sy, sat_sw, sat_sh) ? drag_id = 10 :
+    is_hit(mouse_x, mouse_y, mod3_x, range_sy, mod_w, 24*scale) ? (
+      norm = (mouse_x - mod3_x) / mod_w;
+      nhp = log_map(s3_hp, 20, 20000); nlp = log_map(s3_lp, 20, 20000);
+      abs(norm - nhp) < abs(norm - nlp) ? drag_id = 11 : drag_id = 12;
+    ) :
+
+    // IN / OUT / MODE HITS (With Double Click resets!)
+    is_hit(mouse_x, mouse_y, in_x, mod_sy, sat_sw, sat_sh) ? (
+      dbl_click ? (in_gain = 0; slider14 = 0; sliderchange(0); drag_id = -1;) : (drag_id = 13;);
+    ) :
+    is_hit(mouse_x, mouse_y, out_x, mod_sy, sat_sw, sat_sh) ? (
+      dbl_click ? (out_gain = 0; slider15 = 0; sliderchange(0); drag_id = -1;) : (drag_id = 14;);
+    ) :
+    is_hit(mouse_x, mouse_y, btn_x, btn_y, btn_w, btn_h) ? (
+      sat_mode = 1 - sat_mode; slider13 = sat_mode; sliderchange(0); drag_id = 15;
+    ) : drag_id = -1;
+    
+  ) : drag_id > 0 && drag_id != 15 && drag_id != 16 && drag_id != 17 && drag_id != 18 ? (
+    
+    // DRAG LOGIC 
+    drag_id == 1 ? s1_drv = (1.0 - clamp((mouse_y - mod_sy) / sat_sh, 0, 1)) * 100;
+    drag_id == 2 ? s1_wet = (1.0 - clamp((mouse_y - mod_sy) / sat_sh, 0, 1)) * 100;
+    drag_id == 3 ? s1_hp = clamp(inv_log_map((mouse_x - mod1_x) / mod_w, 20, 20000), 20, s1_lp);
+    drag_id == 4 ? s1_lp = clamp(inv_log_map((mouse_x - mod1_x) / mod_w, 20, 20000), s1_hp, 20000);
+
+    drag_id == 5 ? s2_drv = (1.0 - clamp((mouse_y - mod_sy) / sat_sh, 0, 1)) * 100;
+    drag_id == 6 ? s2_wet = (1.0 - clamp((mouse_y - mod_sy) / sat_sh, 0, 1)) * 100;
+    drag_id == 7 ? s2_hp = clamp(inv_log_map((mouse_x - mod2_x) / mod_w, 20, 20000), 20, s2_lp);
+    drag_id == 8 ? s2_lp = clamp(inv_log_map((mouse_x - mod2_x) / mod_w, 20, 20000), s2_hp, 20000);
+
+    drag_id == 9 ?  s3_drv = (1.0 - clamp((mouse_y - mod_sy) / sat_sh, 0, 1)) * 100;
+    drag_id == 10 ? s3_wet = (1.0 - clamp((mouse_y - mod_sy) / sat_sh, 0, 1)) * 100;
+    drag_id == 11 ? s3_hp = clamp(inv_log_map((mouse_x - mod3_x) / mod_w, 20, 20000), 20, s3_lp);
+    drag_id == 12 ? s3_lp = clamp(inv_log_map((mouse_x - mod3_x) / mod_w, 20, 20000), s3_hp, 20000);
+
+    drag_id == 13 ? in_gain = -60 + (1.0 - clamp((mouse_y - mod_sy) / sat_sh, 0, 1)) * 75;
+    drag_id == 14 ? out_gain = -60 + (1.0 - clamp((mouse_y - mod_sy) / sat_sh, 0, 1)) * 75;
+    
+    slider1=s1_drv; slider2=s1_wet; slider3=s1_hp; slider4=s1_lp;
+    slider5=s2_drv; slider6=s2_wet; slider7=s2_hp; slider8=s2_lp;
+    slider9=s3_drv; slider10=s3_wet; slider11=s3_hp; slider12=s3_lp;
+    slider14=in_gain; slider15=out_gain;
+    sliderchange(0);
+  );
+) : ( drag_id = 0; );
+
+// --- BACKGROUND & BACKPLATES ---
+gfx_r=0.04; gfx_g=0.04; gfx_b=0.04; gfx_a=1;
+gfx_rect(0, 0, gfx_w, gfx_h);
+
+// --- FLYING RED DUST (TITLE AREA) ---
+dust_t_ptr = 3500; dust_t_ptr[] += 1.0; dt_time = dust_t_ptr[];
+num_dt = 120; dt_w = 400 * scale; dt_h = 60 * scale; dt_i = 1;
+
+gfx_r=1.0; gfx_g=0.2; gfx_b=0.2; 
+loop(num_dt,
+  rand_x = dt_i * 213.33; rand_y = dt_i * 187.11;
+  speed_rnd = rand_y - floor(rand_y); speed_v = 0.5 + (speed_rnd ^ 2.0) * 2.0;
+  
+  raw_y = dt_time * speed_v + rand_y; norm_y = raw_y - floor(raw_y / dt_h) * dt_h; dy = dt_h - norm_y; 
+  raw_x = rand_x + sin(dt_time * 0.03 + dt_i) * (20 * scale); dx = raw_x - floor(raw_x / dt_w) * dt_w;
+  
+  fade_y = min(norm_y / (15*scale), (dt_h - norm_y) / (15*scale));
+  fade_x = min(dx / (30*scale), (dt_w - dx) / (30*scale));
+  
+  alpha_rnd = (rand_x * 3.14159) - floor(rand_x * 3.14159);
+  dt_twinkle = 0.4 + sin(dt_time * (0.05 + alpha_rnd * 0.1) + dt_i) * 0.6;
+  gfx_a = clamp(fade_y * fade_x * alpha_rnd * dt_twinkle * 2.0, 0.0, 1.0);
+  
+  size_rnd = (rand_y * 7.77) - floor(rand_y * 7.77);
+  p_size = max(1, ceil((size_rnd ^ 4.0) * 5.0)) * scale;
+  
+  gfx_rect(mod2_x - 50*scale + dx, y_offs + 15*scale + dy, p_size, p_size);
+  dt_i += 1;
+);
+
+// --- PLUGIN TITLE ---
+gfx_setfont(1, "Arial", 28 * scale, 'b');
+gfx_r=0.9; gfx_g=0.2; gfx_b=0.2; gfx_a=0.8;
+gfx_measurestr("FM BurnDrive", tw, th);
+gfx_x = x_offs + (base_w*scale)/2 - tw/2; gfx_y = y_offs + 10 * scale; 
+gfx_drawstr("FM BurnDrive");
+
+
+// --- HELPER FUNCS FOR UI ---
+function draw_sat_curve(x, y, size, foo, type, col_r, col_g, col_b, drv_val, wet_val, id, mod_env) local(px, last_px, py, last_py, norm_x, scr_x, scr_y, t, base_intensity, audio_mod, intensity, max_alpha, xx, n, flame_shape, c_bias, flame_h, num_dust, d_i, t_dust, rand_x, rand_y, speed_v, raw_y, norm_y, dy, raw_x, dx, fade, p_size, dust_ptr, vert_fade, bottom_fade, size_mod, speed_rnd, surge, rand_size_seed, is_big, v, th, ix, iy, isize) (
+  p_size = max(1, ceil(((dy / size_mod) ^ 1.5) * (1.0 + is_big * (0.5 + intensity * 1.0)) * scale));
+  gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1.0; gfx_roundrect(x, y, size, size, 8*scale, 1);
+  t = time_precise() * 8.0 + (id * 2.37); 
+  base_intensity = drv_val / 100.0; audio_mod = 0.5 + (min(mod_env, 1.0) * 1.5); 
+  intensity = clamp(base_intensity * audio_mod, 0.0, 1.0); max_alpha = max(0.05, clamp((wet_val / 100.0) * audio_mod, 0.0, 1.0));
+  
+  ix = floor(x); iy = floor(y); isize = floor(size);
+
+  intensity > 0.01 ? (
+    px = 2; 
+    loop(isize - 4,
+      xx = px / scale; n = sin(xx*0.11 - t) + sin(xx*0.29 + t*1.3)*0.6 + sin(xx*0.67 - t*0.9 + sin(xx*0.1))*0.4 + sin(xx*1.13 + t*1.7)*0.2;
+      n = (n + 2.2) / 4.4; flame_shape = n ^ 3.5; c_bias = sin((px / (isize-4)) * $pi);
+      flame_h = floor(min((flame_shape * intensity * (isize * 0.9) * c_bias) + (intensity * 6 * scale), isize - 4)); 
+      
+      gfx_r = col_r; gfx_g = col_g; gfx_b = col_b; gfx_a = max_alpha * 0.5; 
+      gfx_rect(ix + px, iy + isize - 1 - flame_h, 1, flame_h);
+      
+      gfx_r = min(col_r+0.4, 1.0); gfx_g = min(col_g+0.4, 1.0); gfx_b = min(col_b+0.4, 1.0); gfx_a = max_alpha * 0.9;
+      gfx_rect(ix + px, iy + isize - 1 - floor(flame_h * 0.45), 1, floor(flame_h * 0.45)); 
+      
+      px += 1;
+    );
+  );
+
+  dust_ptr = 3100 + id; dust_ptr[] += 0.5 + (intensity ^ 1.5) * 4.0; t_dust = dust_ptr[];
+  num_dust = 400; gfx_r = min(col_r + 0.15, 1.0); gfx_g = min(col_g + 0.15, 1.0); gfx_b = min(col_b + 0.15, 1.0); d_i = 1; size_mod = isize - floor(6*scale); 
+  loop(num_dust,
+    d_i / num_dust <= (intensity + 0.02) ? (
+      rand_x = (d_i + id * 43.0) * 137.508; rand_y = (d_i + id * 29.0) * 83.921; 
+      speed_rnd = rand_y * 11.0; speed_rnd = speed_rnd - floor(speed_rnd); 
+      speed_v = (0.1 + (speed_rnd ^ 3.0) * 6.0) * scale;
+      surge = sin(t_dust * 0.04 + d_i * 13.0) * (6.0 * scale); 
+      raw_y = t_dust * speed_v + (rand_y * scale) + surge; 
+      norm_y = raw_y - floor(raw_y / size_mod) * size_mod; dy = size_mod - norm_y; 
+      raw_x = (rand_x * scale) + sin(t_dust * (0.01 + speed_rnd * 0.04) + d_i) * ((8.0 + speed_rnd * 18.0) * scale); 
+      dx = raw_x - floor(raw_x / size_mod) * size_mod;
+      fade = (dy / size_mod) * min((size_mod - dy) / (12 * scale), 1.0); gfx_a = min(max_alpha * fade * (0.5 + (rand_x - floor(rand_x))*0.5) * 5.0, 1.0); 
+      rand_size_seed = (rand_x * 3.14159) - floor(rand_x * 3.14159); is_big = rand_size_seed < (0.05 + intensity * 0.45) ? 1.0 : 0.0;
+      p_size = max(1, ceil(((dy / size_mod) ^ 1.5) * (1.0 + is_big * (0.5 + intensity * 1.0)) * scale));
+      gfx_rect(floor(ix + 1.5*scale + dx), floor(iy + 1.5*scale + dy), floor(p_size), floor(p_size));
+    ); d_i += 1;
+  );
+
+  gfx_r=0.35; gfx_g=0.35; gfx_b=0.35; gfx_a=1.0; gfx_roundrect(x, y, size, size, 8*scale, 0);
+  gfx_r=0.3; gfx_g=0.3; gfx_b=0.3; gfx_a=0.5; gfx_line(x, y + size/2, x + size, y + size/2); gfx_line(x + size/2, y, x + size/2, y + size); 
+  
+  gfx_r=col_r; gfx_g=col_g; gfx_b=col_b; gfx_a=1.0; 
+  px = 0;
+  loop(isize,
+    norm_x = (px / (isize-1)) * 2.0 - 1.0; 
+    type == 0 ? ( py = norm_x > 0 ? (1+foo)*norm_x/(1+foo*abs(norm_x)) : (1+foo*0.2)*norm_x/(1+foo*0.2*abs(norm_x)); ) :
+    type == 1 ? ( py = (1+foo)*norm_x/(1+foo*abs(norm_x)); ) : 
+    type == 2 ? ( py = (1+(foo*2.5))*norm_x/(1+(foo*2.5)*abs(norm_x)); ) :
+    type == 3 ? ( v = norm_x * (1 + foo * 2.5); py = abs(v) < 1 ? v - (v*v*v)/3 : sign(v) * (2/3); py *= 1.5; ) :
+    type == 4 ? ( v = norm_x * (1 + foo * 4.0); py = max(min(v, 1.0), -1.0); ) :
+    type == 5 ? ( v = norm_x * (1 + foo * 3.0); py = sin(v * 1.5707963); ) :
+    type == 6 ? ( 
+          th = 0.3; v = norm_x * (1 + foo * 2.2); 
+          py = v > th ? (th + (1 - th) * tanh((v - th) / (1 - th))) : max(v, -1.0); 
+        ) :
+    ( th = 0.7; v = norm_x * (1 + foo * 2.2); py = abs(v) <= th ? v : sign(v) * (th + (1 - th) * tanh((abs(v) - th) / (1 - th))); );
+
+    scr_y = iy + isize - ((py + 1.0) * 0.5 * isize); scr_x = ix + px;
+    px > 0 ? ( gfx_line(last_px, last_py, scr_x, scr_y, 1); gfx_line(last_px, last_py+0.5*scale, scr_x, scr_y+0.5*scale, 1); );
+    last_px = scr_x; last_py = scr_y; px += 1;
+  );
+);
+
+function draw_v_slider(x, y, w, h, val, display_val, name, col_r, col_g, col_b) (
+  rad = 6 * scale; gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+  gfx_rect(x+rad, y, w-rad*2, h); gfx_rect(x, y+rad, w, h-rad*2);
+  gfx_circle(x+rad, y+rad, rad, 1, 1); gfx_circle(x+w-rad, y+rad, rad, 1, 1);
+  gfx_circle(x+rad, y+h-rad, rad, 1, 1); gfx_circle(x+w-rad, y+h-rad, rad, 1, 1);
+  
+  norm = clamp(val / 100, 0, 1); pad = 2 * scale; fill_max = h - pad; fill_h = norm * fill_max-4;
+  fill_y = y + h - pad - fill_h; fill_w = w - pad*2; fill_x = x + pad; f_rad = rad - pad;
+  
+  gfx_r=col_r; gfx_g=col_g; gfx_b=col_b; gfx_a=0.3;
+  fill_h > 0 ? ( fill_h > f_rad ? gfx_rect(fill_x, fill_y - 2*scale, fill_w+3, fill_h-f_rad + 8*scale) : gfx_rect(fill_x, fill_y, fill_w, fill_h); );
+  
+  gfx_r=col_r; gfx_g=col_g; gfx_b=col_b; gfx_a=0.9;
+  gfx_roundrect(x, y, w, h, rad, 1); gfx_roundrect(x+1, y+1, w-2, h-2, rad-1, 1); 
+  gfx_roundrect(x, y, w, h, rad, 1); gfx_roundrect(x+2, y+2, w-4, h-4, rad-2, 1); 
+  gfx_setfont(1, "Arial", 12 * scale); gfx_measurestr(name, tw, th); gfx_x = x + (w-tw)/2; gfx_y = y + h + (8*scale); gfx_drawstr(name);
+  
+  sprintf(#valstr, "%.1f", display_val); gfx_measurestr(#valstr, v_tw, v_th); 
+  gfx_x = x + (w-v_tw)/2; gfx_y = y - (18*scale); gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_drawstr(#valstr);
+);
+
+function draw_dual_h_slider(x, y, w, h, val1, val2, name, r_col, g_col, b_col) local(rad, norm1, norm2, pad, fill_x, fill_w, fill_y, fill_h, hx1, hx2) (
+  rad = 6 * scale; gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+  gfx_rect(x, y, w-rad*2, h); gfx_rect(x, y+rad, w, h-rad*2);
+  gfx_circle(x+rad, y+rad, rad, 1, 1); gfx_circle(x+w-rad, y+rad, rad, 1, 1);
+  gfx_circle(x+rad, y+h-rad, rad, 1, 1); gfx_circle(x+w-rad, y+h-rad, rad, 1, 1);
+
+  norm1 = log_map(max(val1, 20), 20, 20000); norm2 = log_map(max(val2, 20), 20, 20000);
+  pad = 2 * scale; fill_x = x + pad + (norm1 * (w - pad*2)); fill_w = (norm2 - norm1) * (w - pad*2);
+  fill_y = y + pad; fill_h = h - pad*2;
+  
+  fill_w > 0 ? ( gfx_r=r_col; gfx_g=g_col; gfx_b=b_col; gfx_a=0.3; gfx_rect(fill_x-1, fill_y-2, fill_w, fill_h+6); );
+
+  gfx_r=0.8; gfx_g=0.8; gfx_b=0.8; gfx_a=1.0;
+  hx1 = x + pad + (norm1 * (w - pad*2)); gfx_rect(hx1 - 2*scale, y, 4*scale, h);
+  hx2 = x + pad + (norm2 * (w - pad*2)); gfx_rect(hx2 - 2*scale, y, 4*scale, h);
+
+  gfx_r=r_col; gfx_g=g_col; gfx_b=b_col; gfx_a=0.8; gfx_roundrect(x, y, w, h, rad, 1); gfx_roundrect(x+1, y+1, w-2, h-2, rad-1, 1);
+  gfx_r=min(r_col+0.4, 1.0); gfx_g=min(g_col+0.4, 1.0); gfx_b=min(b_col+0.4, 1.0); gfx_a=1.0;
+  sprintf(#valstr, "%s: %.0f Hz - %.0f Hz", name, val1, val2); 
+  gfx_measurestr(#valstr, tw, th); gfx_x = x + (w-tw)/2; gfx_y = y + (h/2) - (th/2); gfx_drawstr(#valstr);
+);
+
+function draw_targeted_mod(sx, sy, r_y, drv_v, wet_v, hp_v, lp_v, foo, type, id, mod_env) local(name, r, g, b, tw, th, lbl_x, tri_x, tri_y) (
+  type == 0 ? ( name = "TUBE"; r = 1.0; g = 0.5; b = 0.1; ) :
+  type == 1 ? ( name = "VCA"; r = 0.9; g = 0.2; b = 0.6; ) : 
+  type == 2 ? ( name = "FET"; r = 0.6; g = 0.9; b = 0.2; ) :
+  type == 3 ? ( name = "S CLIP"; r = 1.0; g = 0.85; b = 0.1; ) :
+  type == 4 ? ( name = "H CLIP"; r = 0.95; g = 0.15; b = 0.15; ) :
+  type == 5 ? ( name = "FOLD B"; r = 0.1; g = 0.85; b = 0.95; ) :
+  type == 6 ? ( name = "  DIODE G"; r = 0.85; g = 0.55; b = 0.25; ) :
+  ( name = "  DIODE S"; r = 0.25; g = 0.65; b = 0.95; );
+
+  // Stage Title Header
+  gfx_r=r; gfx_g=g; gfx_b=b; gfx_setfont(1, "Arial", 14 * scale, 'b'); 
+  id == 0 ? strcpy(#stg_name, "STAGE 1") : id == 1 ? strcpy(#stg_name, "STAGE 2") : strcpy(#stg_name, "STAGE 3");
+  gfx_measurestr(#stg_name, tw, th);
+  gfx_x = sx + sat_sw + 10*scale + box_s/2 - tw/2; gfx_y = sy - 25*scale; gfx_drawstr(#stg_name);
+  
+  // Internal Type Dropdown Block
+  gfx_r=r; gfx_g=g; gfx_b=b; gfx_a=0.5;
+  gfx_setfont(1, "Arial", 16*scale, 'b'); gfx_measurestr(name, tw, th);
+  lbl_x = sx + sat_sw + 10*scale + box_s/2 - tw/2 - 6*scale; gfx_x = lbl_x; gfx_y = sy + 6*scale; gfx_drawstr(name);
+  tri_x = lbl_x + tw + 6*scale; tri_y = sy + 12*scale;
+  gfx_triangle(tri_x, tri_y, tri_x + 8*scale, tri_y, tri_x + 4*scale, tri_y + 4*scale);
+
+  // Main Module Body
+  draw_v_slider(sx, sy, sat_sw, sat_sh, drv_v, drv_v, "DRIVE", r, g, b);
+  draw_sat_curve(sx + sat_sw + 10*scale, sy, box_s, foo, type, r, g, b, drv_v, wet_v, id, mod_env);
+  draw_v_slider(sx + sat_sw + 10*scale + box_s + 10*scale, sy, sat_sw, sat_sh, wet_v, wet_v, "MIX", r, g, b);
+
+  // Range Slider
+  draw_dual_h_slider(sx, r_y, mod_w, 24*scale, hp_v, lp_v, "RANGE", r, g, b);
+);
+
+function draw_sat_mode_btn(bx, by, bw, bh, mode) local(rad, tw, th) (
+  rad = 6 * scale; gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+  gfx_rect(bx+rad, by, bw-rad*2, bh); gfx_rect(bx, by+rad, bw, bh-rad*2);
+  gfx_circle(bx+rad, by+rad, rad, 1, 1); gfx_circle(bx+bw-rad, by+rad, rad, 1, 1);
+  gfx_circle(bx+rad, by+bh-rad, rad, 1, 1); gfx_circle(bx+bw-rad, by+bh-rad, rad, 1, 1);
+  
+  mode == 1 ? (gfx_r=0.8; gfx_g=0.2; gfx_b=0.5;) : (gfx_r=0.35; gfx_g=0.35; gfx_b=0.35;);
+  gfx_a=1.0; gfx_roundrect(bx, by, bw, bh, rad, 1);
+  
+  mode == 1 ? (gfx_r=0.8; gfx_g=0.2; gfx_b=0.5;) : (gfx_r=0.4; gfx_g=0.4; gfx_b=0.4;);
+  gfx_setfont(1, "Arial", 12 * scale, 'b');
+  mode == 1 ? gfx_measurestr("MODE: PARALLEL", tw, th) : gfx_measurestr("MODE: SERIES", tw, th);
+  gfx_x = bx + (bw-tw)/2; gfx_y = by + (bh/2) - (th/2); 
+  mode == 1 ? gfx_drawstr("MODE: PARALLEL") : gfx_drawstr("MODE: SERIES");
+);
+
+// --- DRAW IN/OUT SLIDERS ---
+in_pct = ((in_gain + 60) / 75) * 100;
+out_pct = ((out_gain + 60) / 75) * 100;
+
+draw_v_slider(in_x, mod_sy, sat_sw, sat_sh, in_pct, in_gain, "IN", 0.5, 0.5, 0.5);
+draw_v_slider(out_x, mod_sy, sat_sw, sat_sh, out_pct, out_gain, "OUT", 0.5, 0.5, 0.5);
+
+// --- DRAW ROUTING BUTTON ---
+draw_sat_mode_btn(btn_x, btn_y, btn_w, btn_h, sat_mode);
+
+// --- DRAW MODULES ---
+draw_targeted_mod(mod1_x, mod_sy, range_sy, s1_drv, s1_wet, s1_hp, s1_lp, s1_foo, s1_type, 0, env_s1);
+draw_targeted_mod(mod2_x, mod_sy, range_sy, s2_drv, s2_wet, s2_hp, s2_lp, s2_foo, s2_type, 1, env_s2);
+draw_targeted_mod(mod3_x, mod_sy, range_sy, s3_drv, s3_wet, s3_hp, s3_lp, s3_foo, s3_type, 2, env_s3);

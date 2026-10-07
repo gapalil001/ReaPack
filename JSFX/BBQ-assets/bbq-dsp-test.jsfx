@@ -1,0 +1,387 @@
+desc: BBQ Grill saturator [DSP verification]
+// @noindex
+
+// BBQ: source -> independent detectors -> noise + crackle -> final Drive.
+// Existing slider IDs 2..17 are preserved for project automation.
+options:no_meter
+slider2:10<0,50,0.1>-Noise Attack (ms)
+slider3:250<1,1000,1>-Noise Release (ms)
+slider4:20<20,20000,1>-Noise Detector Low Cut (Hz)
+slider5:20000<20,20000,1>-Noise Detector High Cut (Hz)
+slider6:62<0,100,1>-Noise Level (%)
+slider7:65<20,20000,1>-Noise Low Cut (Hz)
+slider8:16500<20,20000,1>-Noise High Cut (Hz)
+slider9:71<0,100,1>-Crackle Level (%)
+slider10:40<20,20000,1>-Crackle Low Cut (Hz)
+slider11:18200<20,20000,1>-Crackle High Cut (Hz)
+slider12:45<0,100,1>-Drive Amount (%)
+slider13:2<0,4,1{Tape,Tube,Soft Clip,FET,Diode}>-Drive Type
+slider14:52<20,20000,1>-Drive Low Cut (Hz)
+slider15:16400<20,20000,1>-Drive High Cut (Hz)
+slider16:100<0,100,1>-Drive Wet (%)
+slider17:1<0,1,1>-Drive Power (On/Off)
+slider18:0<0,2,1{Pink,White,Brown}>-Noise Color
+slider19:20<20,20000,1>-Crackle Detector Low Cut (Hz)
+slider20:20000<20,20000,1>-Crackle Detector High Cut (Hz)
+slider21:10<0,50,0.1>-Crackle Attack (ms)
+slider22:250<1,1000,1>-Crackle Release (ms)
+slider23:0<0,1,1{Meters,No meters}>-No Meter
+slider24:1<0,1,1{Noise layer,Full mix}>-Drive Routing
+
+slider30:0<0,10000,1>-Test Reset
+slider31:-18<-100,6,.1>-Test Input dBFS
+slider32:0<0,10,.00001>-Test Noise Envelope
+slider33:0<0,10,.00001>-Test Crackle Envelope
+slider34:0<0,10000000,1>-Test Events
+slider35:0<0,10,.00001>-Test Input RMS
+slider36:0<0,10,.00001>-Test Output RMS
+slider37:0<0,100,.00001>-Test Dry Error
+slider38:0<0,100000000,1>-Test Frames
+slider39:0<0,100,.00001>-Test Max Output
+slider40:0<0,1,1>-Test Invalid Output
+slider41:0<0,10,.00001>-Test Noise Roughness
+slider42:0<0,10,.00001>-Test Noise RMS
+
+options:gfx_hz=60
+filename:0,grill-background.png
+filename:1,bbq-knob-35-atlas.png
+filename:2,meter-body.png
+filename:3,meter-needle-35-atlas.png
+filename:4,meter-glass.png
+
+@init
+ext_noinit=1;
+gfx_ext_retina=1;
+slider_show(16777214,0);
+meter_in=meter_out=meter_in_clips=meter_out_clips=0;
+meter_block_seq=0;
+last_mouse_cap=active_id=details_open=0;
+noise_env=crackle_env=0;
+b0=b1=b2=b3=b4=b5=brown=0;
+cr_amp=cr_phase=cr_omega=cr_decay=cr_event_count=0;
+
+function bbq_pole(hz) (
+  1-exp(-2*$pi*min(max(hz,20),srate*.45)/srate);
+);
+function bbq_band(x,hp_a,lp_a) instance(hp,lp) local(v) (
+  hp+=hp_a*(x-hp);v=x-hp;
+  lp+=lp_a*(v-lp);lp;
+);
+function bbq_follow(x,att,rel) instance(value) (
+  value=x>value ? value*att+x*(1-att) : value*rel+x*(1-rel);
+  value;
+);
+function bbq_tanh(x) (
+  x>6 ? 1 : x< -6 ? -1 : (exp(2*x)-1)/(exp(2*x)+1);
+);
+function bbq_shape(x,kind) (
+  kind==0 ? bbq_tanh(x) :
+  kind==1 ? (x>0 ? bbq_tanh(x) : 2*bbq_tanh(x*.5)) :
+  kind==2 ? x/(1+abs(x)) :
+  kind==3 ? bbq_tanh(x)*(1-.08*min(abs(x),4)) :
+  sign(x)*(abs(x)>.1 ? 1-exp(-2*(abs(x)-.1)) : 0);
+);
+function bbq_drive(x) local(band) (
+  band=this.bbq_band(x,dr_hp_a,dr_lp_a);
+  // Preserve frequencies outside the Drive band; zero Amount/Wet is transparent.
+  x+drive_blend*(bbq_shape(band*drive_gain,slider13)-band);
+);
+
+@block
+slider32=noise_env;slider33=crackle_env;
+slider34=test_events;slider38=test_frames;
+test_frames>0 ? (
+ slider35=sqrt(test_in_sq/test_frames);
+ slider36=sqrt(test_out_sq/test_frames);
+ slider37=test_dry_error;slider39=test_max;slider40=test_invalid;
+ slider41=test_noise_sq>0 ? sqrt(test_noise_delta_sq/test_noise_sq) : 0;
+ slider42=sqrt(test_noise_sq/test_frames);
+);
+slider30!=test_reset ? (
+ test_reset=slider30;
+ test_frames=test_in_sq=test_out_sq=test_events=test_dry_error=test_max=test_invalid=0;
+ test_noise_sq=test_noise_delta_sq=0;
+);
+
+meter_block_seq+=1;
+meter_release=exp(-1/(.35*srate));
+slider23!=last_meter_option ? (
+  meter_in=meter_out=meter_in_clips=meter_out_clips=0;
+  last_meter_option=slider23;
+);
+noise_att=exp(-1/(max(slider2,.1)*.001*srate));
+noise_rel=exp(-1/(max(slider3,1)*.001*srate));
+cr_att=exp(-1/(max(slider21,.1)*.001*srate));
+cr_rel=exp(-1/(max(slider22,1)*.001*srate));
+nd_hp_a=bbq_pole(slider4);nd_lp_a=bbq_pole(max(slider4,slider5));
+cd_hp_a=bbq_pole(slider19);cd_lp_a=bbq_pole(max(slider19,slider20));
+pn_hp_a=bbq_pole(slider7);pn_lp_a=bbq_pole(max(slider7,slider8));
+cr_hp_a=bbq_pole(slider10);cr_lp_a=bbq_pole(max(slider10,slider11));
+dr_hp_a=bbq_pole(slider14);dr_lp_a=bbq_pole(max(slider14,slider15));
+noise_gain=slider6*.005;
+crackle_gain=slider9*.01;
+drive_gain=1+slider12*.1;
+drive_blend=slider16*.01*slider12*.01;
+brown_a=exp(-2*$pi*25/srate);
+brown_feed=sqrt(1-brown_a*brown_a);
+
+@sample
+test_phase+=2*$pi*1000/srate;
+test_phase>=2*$pi ? test_phase-=2*$pi;
+spl0=sin(test_phase)*10^(slider31/20);spl1=-spl0;
+test_events_before=cr_event_count;
+
+dry_l=spl0;dry_r=spl1;
+!slider23 ? (
+  input_peak=max(abs(dry_l),abs(dry_r));
+  meter_in=max(input_peak,meter_in*meter_release);
+  input_peak>1 ? meter_in_clips+=1;
+);
+
+// Separate stereo detectors: anti-phase material must still excite the grill.
+nd_l=noise_detector_l.bbq_band(dry_l,nd_hp_a,nd_lp_a);
+nd_r=noise_detector_r.bbq_band(dry_r,nd_hp_a,nd_lp_a);
+cd_l=crackle_detector_l.bbq_band(dry_l,cd_hp_a,cd_lp_a);
+cd_r=crackle_detector_r.bbq_band(dry_r,cd_hp_a,cd_lp_a);
+noise_env=noise_follower.bbq_follow(max(abs(nd_l),abs(nd_r)),noise_att,noise_rel);
+crackle_env=crackle_follower.bbq_follow(max(abs(cd_l),abs(cd_r)),cr_att,cr_rel);
+
+white=rand(2)-1;
+b0=.99886*b0+white*.0555179;
+b1=.99332*b1+white*.0750759;
+b2=.969*b2+white*.153852;
+b3=.8665*b3+white*.3104856;
+b4=.55*b4+white*.5329522;
+b5=-.7616*b5-white*.016898;
+pink=(b0+b1+b2+b3+b4+b5+white*.5362)*.11;
+// Leaky Brown avoids the DC drift of an unbounded random walk, at any sample rate.
+brown=brown_a*brown+brown_feed*white;
+noise_raw=slider18==0 ? pink : slider18==1 ? white*.5 : brown*.5;
+noise_signal=noise_output.bbq_band(noise_raw,pn_hp_a,pn_lp_a)*noise_gain*noise_env;
+
+// A Poisson event process: level increases density; the Crackle knob is volume.
+cr_density=crackle_env>0.00001 ? 30+950*min(1,crackle_env*4)^.8 : 0;
+cr_probability=1-exp(-cr_density/srate);
+cr_probability>0 && rand(1)<cr_probability ? (
+  cr_event_count+=1;
+  cr_pitch=min(srate*.35,450*exp(rand(1)*log(9000/450)));
+  cr_omega=2*$pi*cr_pitch/srate;
+  cr_phase=rand(2*$pi);
+  cr_decay=exp(-1/((.0004+rand(1)*.0026)*srate));
+  // Many soft ticks, occasional fat pops, with random polarity and pitch.
+  cr_amp=(rand(1)<.5 ? -1 : 1)*(.08+1.5*rand(1)^2);
+);
+cr_phase+=cr_omega;cr_phase>=2*$pi ? cr_phase-=2*$pi;
+cr_amp*=cr_decay;
+cr_raw=cr_amp*(.65*(rand(2)-1)+.35*sin(cr_phase));
+crackle_signal=crackle_output.bbq_band(cr_raw,cr_hp_a,cr_lp_a)*crackle_gain*crackle_env;
+
+generated=noise_signal+crackle_signal;
+slider17 && slider24==0 ? (
+  // Legacy routing remains available; the original dry stereo signal stays dry.
+  generated=noise_drive.bbq_drive(generated);
+  spl0=dry_l+generated;spl1=dry_r+generated;
+) : (
+  spl0=dry_l+generated;spl1=dry_r+generated;
+  slider17 && slider24==1 ? (
+    spl0=final_drive_l.bbq_drive(spl0);
+    spl1=final_drive_r.bbq_drive(spl1);
+  );
+);
+!slider23 ? (
+  output_peak=max(abs(spl0),abs(spl1));
+  meter_out=max(output_peak,meter_out*meter_release);
+  output_peak>1 ? meter_out_clips+=1;
+);
+
+
+test_frames+=1;
+test_in_sq+=dry_l*dry_l;
+test_out_sq+=spl0*spl0;
+test_noise_sq+=noise_signal*noise_signal;
+test_noise_delta_sq+=(noise_signal-test_prev_noise)^2;test_prev_noise=noise_signal;
+test_events+=cr_event_count-test_events_before;
+test_dry_error=max(test_dry_error,max(abs(spl0-dry_l),abs(spl1-dry_r)));
+test_max=max(test_max,max(abs(spl0),abs(spl1)));
+(spl0!=spl0||spl1!=spl1||abs(spl0)>100||abs(spl1)>100) ? test_invalid=1;
+
+@gfx 250 526
+// PNG artwork is rendered in Blender with a fixed camera and lights.
+function bbq_text(label,x,y,w,h,size,r,g,b) (
+  gfx_setfont(1,"Arial",max(8,min(100,size*u)),'b');
+  gfx_set(r,g,b,1); gfx_x=ox+x*u; gfx_y=oy+y*u;
+  gfx_drawstr(label,5,ox+(x+w)*u,oy+(y+h)*u);
+);
+function bbq_hit(x,y,w,h) (
+  mx>=x && mx<=x+w && my>=y && my<=y+h;
+);
+function bbq_blit(img,sx,sy,sw,sh,x,y,w,h) (
+  gfx_a=1; gfx_mode=0;
+  gfx_blit(img,1,0,sx,sy,sw,sh,ox+x*u,oy+y*u,w*u,h*u);
+);
+function bbq_start(id,low,high,logarithmic,reset) (
+  active_id=id; drag_start_y=my; drag_start_val=slider(id);
+  drag_horizontal=drag_partner=0;
+  drag_low=low; drag_high=high; drag_log=logarithmic;
+  last_click_id==id && now-last_click_time<.28 ? (
+    slider(id)=reset; slider_automate(1<<(id-1),1); active_id=0;
+  );
+  last_click_id=id; last_click_time=now;
+);
+function bbq_knob(id,x,y,label,reset) local(f) (
+  f=floor(max(0,min(100,slider(id)))*34/100+.5);
+  bbq_blit(1,(f%7)*192,floor(f/7)*192,192,192,x-80,y-80,160,160);
+  bbq_text(label,x-82,y-108,164,30,23,.79,.76,.66);
+  sprintf(#knob_value,"%d",slider(id));
+  bbq_text(#knob_value,x-50,y+69,100,26,18,.76,.72,.60);
+  click && bbq_hit(x-80,y-80,160,160) ? bbq_start(id,0,100,0,reset);
+  wheel && bbq_hit(x-80,y-80,160,160) ? (
+    slider(id)=max(0,min(100,slider(id)+wheel));
+    slider_automate(1<<(id-1),1);
+  );
+);
+function bbq_meter(peak,clip,x,label) local(db,f) (
+  db=peak>0.00000001 ? 20*log10(peak) : -160;
+  f=floor(max(0,min(1,(db+60)/60))*34+.5);
+  bbq_text(label,x,315,174,25,20,.79,.76,.66);
+  bbq_blit(2,0,0,320,200,x,337,174,108.75);
+  bbq_blit(3,(f%5)*320,floor(f/5)*200,320,200,x,337,174,108.75);
+  bbq_blit(4,0,0,320,200,x,337,174,108.75);
+  db < -99 ? strcpy(#db_value,"-inf dBFS") : sprintf(#db_value,"%.1f dBFS",db);
+  bbq_text(#db_value,x+8,439,158,23,13,.78,.74,.63);
+  clip ? bbq_text("CLIP",x+122,316,44,21,12,.95,.28,.13);
+);
+function bbq_field(id,x,y,w,label,low,high,logarithmic,reset,unit) (
+  gfx_set(.12,.115,.10,1);gfx_rect(ox+x*u,oy+y*u,w*u,44*u);
+  bbq_text(label,x+8,y+3,w-16,16,12,.65,.61,.52);
+  unit==0 ? sprintf(#field_value,"%.1f ms",slider(id)) :
+  unit==1 ? sprintf(#field_value,"%d ms",slider(id)) :
+  unit==2 ? (slider(id)>=1000 ? sprintf(#field_value,"%.2f kHz",slider(id)/1000) : sprintf(#field_value,"%d Hz",slider(id))) :
+  sprintf(#field_value,"%d %%",slider(id));
+  bbq_text(#field_value,x+8,y+19,w-16,22,16,.86,.79,.62);
+  click && bbq_hit(x,y,w,44) ? bbq_start(id,low,high,logarithmic,reset);
+  wheel && bbq_hit(x,y,w,44) ? (
+    slider(id)=logarithmic ? max(low,min(high,slider(id)*exp(wheel*.04))) : max(low,min(high,slider(id)+wheel));
+    slider_automate(1<<(id-1),1);
+  );
+);
+
+function bbq_dual(lo,hi,x,y,w,label,reset_lo,reset_hi) local(a,b,chosen,other,v) (
+  a=log(max(20,slider(lo))/20)/log(1000);
+  b=log(max(20,slider(hi))/20)/log(1000);
+  bbq_text(label,x,y-23,w,20,14,.73,.69,.58);
+  gfx_set(.29,.27,.22,1);gfx_rect(ox+x*u,oy+(y+7)*u,w*u,5*u);
+  gfx_set(.68,.60,.43,1);gfx_rect(ox+(x+a*w)*u,oy+(y+7)*u,max(1,(b-a)*w*u),5*u);
+  gfx_set(.78,.71,.56,1);gfx_circle(ox+(x+a*w)*u,oy+(y+9)*u,7*u,1);gfx_circle(ox+(x+b*w)*u,oy+(y+9)*u,7*u,1);
+  sprintf(#range_value,"HP  %d Hz     /     LP  %d Hz",slider(lo),slider(hi));
+  bbq_text(#range_value,x,y+20,w,21,12,.84,.77,.63);
+  (click||wheel) && bbq_hit(x-10,y-7,w+20,35) ? (
+    chosen=abs(mx-x-a*w)<=abs(mx-x-b*w) ? lo : hi;
+    other=chosen==lo ? hi : lo;
+    click ? (
+      bbq_start(chosen,20,20000,1,chosen==lo?reset_lo:reset_hi);
+      active_id==0 ? (
+        slider(chosen)=chosen==lo?min(slider(chosen),slider(other)):max(slider(chosen),slider(other));
+        slider_automate(1<<(chosen-1),1);
+      );
+      drag_horizontal=1;drag_start_x=mx;drag_width=w;
+      drag_partner=other;drag_is_low=chosen==lo;
+    );
+    wheel ? (
+      v=slider(chosen)*exp(wheel*.04);
+      v=chosen==lo ? min(v,slider(other)) : max(v,slider(other));
+      slider(chosen)=max(20,min(20000,floor(v+.5)));
+      slider_automate(1<<(chosen-1),1);
+    );
+  );
+);
+function bbq_pick(id,x,y,w,label,value,menu) local(chosen) (
+  gfx_set(.10,.095,.08,.93);gfx_rect(ox+x*u,oy+y*u,w*u,40*u);
+  bbq_text(label,x+6,y+1,w-12,17,12,.65,.61,.52);
+  bbq_text(value,x+6,y+17,w-12,22,16,.86,.79,.62);
+  click && bbq_hit(x,y,w,40) ? (
+    gfx_x=mouse_x;gfx_y=mouse_y;chosen=gfx_showmenu(menu);
+    chosen>0 ? (slider(id)=chosen-1;slider_automate(1<<(id-1),1););
+  );
+);
+
+gfx_clear=0x121416;
+// One uniform transform for artwork and controls: the grill never stretches.
+u=min(gfx_w/1280,gfx_h/702);
+ox=(gfx_w-1280*u)/2;oy=(gfx_h-702*u)/2;
+gfx_getimgdim(0,bg_w,bg_h);
+bg_w>0 ? (
+  gfx_a=1;gfx_mode=0;
+  gfx_blit(0,1,0,0,0,bg_w,bg_h,ox,oy,1280*u,702*u);
+);
+mx=(mouse_x-ox)/u;my=(mouse_y-oy)/u;
+now=time_precise();dt=max(0,min(.2,now-last_gfx_time));last_gfx_time=now;
+down=mouse_cap&1;click=down&&!last_mouse_cap;
+wheel=mouse_wheel>0?1:mouse_wheel<0?-1:0;mouse_wheel=0;
+meter_block_seq!=ui_block_seq ? (
+  ui_block_seq=meter_block_seq;ui_last_audio_time=now;
+  ui_in=meter_in;ui_out=meter_out;
+) : now-ui_last_audio_time>.12 ? (ui_in*=exp(-dt/.35);ui_out*=exp(-dt/.35););
+meter_in_clips!=ui_in_clips ? (ui_in_clips=meter_in_clips;ui_in_clip_until=now+.8;);
+meter_out_clips!=ui_out_clips ? (ui_out_clips=meter_out_clips;ui_out_clip_until=now+.8;);
+bg_w<=0 ? bbq_text("Copy BBQ-assets beside noiser.jsfx",100,100,1080,80,24,1,.6,.3);
+
+!details_open ? (
+  !slider23 ? (
+    bbq_meter(ui_in,now<ui_in_clip_until,788,"INPUT");
+    bbq_meter(ui_out,now<ui_out_clip_until,982,"OUTPUT");
+  );
+  bbq_knob(6,300,530,"NOISE",62);
+  bbq_knob(9,530,530,"CRACKLE",71);
+  bbq_knob(12,758,530,"DRIVE",45);
+  bbq_text("BBQ",920,475,242,65,61,.64,.61,.51);
+  bbq_text("GRILL SATURATOR",920,534,242,34,22,.73,.69,.58);
+  gfx_set(.56,.52,.43,1);gfx_line(ox+938*u,oy+570*u,ox+1144*u,oy+570*u);
+  gfx_set(.22,.21,.18,1);gfx_circle(ox+1085*u,oy+616*u,19*u,1);
+  gfx_set(.62,.61,.54,1);gfx_circle(ox+1085*u,oy+616*u,15*u,1);
+  gfx_set(.12,.12,.105,1);gfx_circle(ox+1085*u,oy+616*u,11*u,1);
+  gfx_set(.70,.68,.60,1);gfx_line(ox+1085*u,oy+616*u,ox+1093*u,oy+(slider17?601:630)*u);
+  gfx_circle(ox+1093*u,oy+(slider17?601:630)*u,5*u,1);
+  gfx_set(slider17?.95:.25,slider17?.59:.23,slider17?.11:.17,1);gfx_circle(ox+1085*u,oy+587*u,5*u,1);
+  bbq_text("DRIVE POWER",1020,641,130,25,15,.72,.68,.57);
+  click&&bbq_hit(1057,583,56,60) ? (slider17=1-slider17;slider_automate(1<<16,1););
+  bbq_text("OPTIONS",145,659,170,31,15,.71,.67,.55);
+  click&&bbq_hit(145,656,170,38) ? (
+    gfx_x=mouse_x;gfx_y=mouse_y;option=gfx_showmenu(slider23?"!No meter":"No meter");
+    option==1 ? (slider23=1-slider23;slider_automate(1<<22,1););
+  );
+) : (
+  // Fold-out controls stay inside the grill face, so its window never letterboxes.
+  gfx_set(.035,.033,.027,.91);gfx_rect(ox+115*u,oy+311*u,1050*u,341*u);
+  bbq_text("NOISE",140,325,300,27,20,.80,.73,.58);
+  bbq_text("CRACKLE",500,325,300,27,20,.80,.73,.58);
+  bbq_text("DRIVE",885,325,230,27,20,.80,.73,.58);
+  bbq_dual(4,5,150,388,280,"DETECTOR",20,20000);
+  bbq_dual(7,8,150,463,280,"NOISE FILTER",65,16500);
+  bbq_dual(19,20,510,388,280,"DETECTOR",20,20000);
+  bbq_dual(10,11,510,463,280,"CRACKLE FILTER",40,18200);
+  slider18==0?strcpy(#noise_kind,"PINK"):slider18==1?strcpy(#noise_kind,"WHITE"):strcpy(#noise_kind,"BROWN");
+  bbq_pick(18,140,514,300,"COLOR",#noise_kind,"Pink|White|Brown");
+  bbq_text("Random ticks / pops  ·  signal-driven density",500,514,300,40,13,.68,.63,.51);
+  bbq_field(2,140,573,145,"ATTACK",0,50,0,10,0);
+  bbq_field(3,295,573,145,"RELEASE",1,1000,0,250,1);
+  bbq_field(21,500,573,145,"ATTACK",0,50,0,10,0);
+  bbq_field(22,655,573,145,"RELEASE",1,1000,0,250,1);
+  bbq_pick(24,885,363,230,"ROUTING",slider24?"FULL MIX":"NOISE LAYER","Noise layer|Full mix");
+  slider13==0?strcpy(#type_name,"TAPE"):slider13==1?strcpy(#type_name,"TUBE"):slider13==2?strcpy(#type_name,"SOFT CLIP"):slider13==3?strcpy(#type_name,"FET"):strcpy(#type_name,"DIODE");
+  bbq_pick(13,885,424,230,"TYPE",#type_name,"Tape|Tube|Soft Clip|FET|Diode");
+  bbq_field(16,885,485,230,"WET",0,100,0,100,3);
+  bbq_dual(14,15,895,572,210,"DRIVE FILTER",52,16400);
+);
+bbq_text(details_open?"DETAILS  -":"DETAILS  +",490,659,300,31,17,.71,.67,.55);
+click&&bbq_hit(490,656,300,38) ? (details_open=!details_open;active_id=0;);
+active_id>0&&down ? (
+  movement=drag_horizontal ? (mx-drag_start_x)/drag_width*((mouse_cap&8)?.2:1) : (drag_start_y-my)*((mouse_cap&8)?.001:.006);
+  value=drag_log ? drag_start_val*exp(movement*log(drag_high/drag_low)) : drag_start_val+movement*(drag_high-drag_low);
+  value=max(drag_low,min(drag_high,value));
+  drag_partner>0 ? value=drag_is_low?min(value,slider(drag_partner)):max(value,slider(drag_partner));
+  active_id==2||active_id==21 ? value=floor(value*10+.5)/10 : value=floor(value+.5);
+  slider(active_id)!=value ? (slider(active_id)=value;slider_automate(1<<(active_id-1)););
+);
+!down&&last_mouse_cap&&active_id>0 ? (slider_automate(1<<(active_id-1),1);active_id=0;);
+last_mouse_cap=down;gfx_getchar();

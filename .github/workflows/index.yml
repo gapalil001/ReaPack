@@ -1,0 +1,56 @@
+name: ReaPack index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'JSFX/**'
+      - 'README.md'
+      - '.reapack-index.conf'
+      - '.github/workflows/index.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'JSFX/**'
+      - 'README.md'
+      - '.reapack-index.conf'
+      - '.github/workflows/index.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reapack-index-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Install indexer and Pandoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+          gem install reapack-index --version 1.2.3 --no-document
+      - name: Check packages
+        run: reapack-index --check
+      - name: Update index
+        if: github.event_name != 'pull_request'
+        run: reapack-index
+      - name: Publish updated index
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          if ! git diff --quiet -- index.xml; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add index.xml
+            git commit -m 'Update ReaPack index'
+            git push origin HEAD:main
+          fi
